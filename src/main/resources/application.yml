@@ -1,0 +1,14 @@
+server:
+  port: 8080
+
+llm:
+  base-url: https://api.hunyuan.cloud.tencent.com/v1
+  api-key: ${HUNYUAN_API_KEY:}
+  model: hunyuan-turbos-latest
+  timeout-ms: 15000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
