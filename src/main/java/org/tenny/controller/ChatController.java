@@ -70,8 +70,8 @@ public class ChatController {
     }
 
     /**
-     * SSE agent: stream=true with tools; {@code delta} for assistant tokens; {@code step}, {@code tool_call},
-     * {@code tool_result}, {@code done} as named events. First data line is JSON {@code conversationId}.
+     * SSE agent: same shape as {@code /chat/stream} — first {@code data} is JSON {@code conversationId}, then
+     * UTF-8 text chunks for the final reply. Tool rounds are server-side only (see logs).
      */
     @PostMapping(value = "/agent/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter agentChatStream(@Valid @RequestBody ChatRequest request) {

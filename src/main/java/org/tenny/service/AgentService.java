@@ -1,6 +1,5 @@
 package org.tenny.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -33,22 +32,19 @@ public class AgentService {
     private final AgentProperties agentProperties;
     private final WaybillQueryTool waybillQueryTool;
     private final ConversationStore conversationStore;
-    private final ObjectMapper objectMapper;
 
     public AgentService(LlmClient llmClient,
                         LlmStreamClient llmStreamClient,
                         LlmProperties llmProperties,
                         AgentProperties agentProperties,
                         WaybillQueryTool waybillQueryTool,
-                        ConversationStore conversationStore,
-                        ObjectMapper objectMapper) {
+                        ConversationStore conversationStore) {
         this.llmClient = llmClient;
         this.llmStreamClient = llmStreamClient;
         this.llmProperties = llmProperties;
         this.agentProperties = agentProperties;
         this.waybillQueryTool = waybillQueryTool;
         this.conversationStore = conversationStore;
-        this.objectMapper = objectMapper;
     }
 
     /**
@@ -104,9 +100,8 @@ public class AgentService {
     }
 
     /**
-     * SSE agent loop: stream=true with tools; {@code delta} events for final assistant text; {@code tool_call} /
-     * {@code tool_result} between rounds. First data line is JSON {@code conversationId} (same convention as
-     * {@code /api/chat/stream}).
+     * SSE agent: same wire format as {@code /api/chat/stream} — first {@code data} is JSON {@code conversationId},
+     * then UTF-8 text chunks for the final assistant reply only. Tool rounds and metrics are logged, not streamed.
      */
     public void runStream(String userMessage, String conversationId, SseEmitter emitter) throws IOException {
         long start = System.currentTimeMillis();
@@ -126,26 +121,19 @@ public class AgentService {
 
         while (steps < max) {
             steps++;
-            Map<String, Object> stepPayload = new HashMap<String, Object>();
-            stepPayload.put("step", Integer.valueOf(steps));
-            stepPayload.put("maxSteps", Integer.valueOf(max));
-            emitter.send(SseEmitter.event().name("step").data(objectMapper.writeValueAsString(stepPayload), jsonUtf8));
+            log.info("[AgentStream] request step {}/{}, conversationId={}", Integer.valueOf(steps), Integer.valueOf(max), convId);
 
             LlmCompletionResult result = llmStreamClient.streamChatCompletionsWithTools(messages, tools, piece ->
-                    emitter.send(SseEmitter.event().name("delta").data(piece, textUtf8)));
+                    emitter.send(SseEmitter.event().data(piece, textUtf8)));
 
             if (result.hasToolCalls()) {
                 log.info("[AgentStream] step {} → tool_calls: {}", Integer.valueOf(steps), summarizeToolCalls(result.getToolCalls()));
                 messages.add(result.getAssistantMessage());
                 for (LlmToolCall call : result.getToolCalls()) {
-                    Map<String, Object> tc = new HashMap<String, Object>();
-                    tc.put("name", call.getName());
-                    tc.put("arguments", call.getArguments());
-                    emitter.send(SseEmitter.event().name("tool_call").data(objectMapper.writeValueAsString(tc), jsonUtf8));
+                    log.info("[AgentStream] tool_call name={} id={} arguments={}",
+                            call.getName(), call.getId(), JsonLogging.truncate(call.getArguments(), 400));
                     String payload = executeTool(call.getName(), call.getArguments());
-                    log.info("[AgentStream] tool {} → {}", call.getName(), JsonLogging.truncate(payload, 500));
-                    emitter.send(SseEmitter.event().name("tool_result").data(
-                            objectMapper.writeValueAsString(toolResultPayload(call.getName(), payload)), jsonUtf8));
+                    log.info("[AgentStream] tool_result name={} content={}", call.getName(), JsonLogging.truncate(payload, 2000));
                     Map<String, Object> toolMsg = new HashMap<String, Object>();
                     toolMsg.put("role", "tool");
                     toolMsg.put("tool_call_id", call.getId());
@@ -156,18 +144,13 @@ public class AgentService {
             }
 
             if (result.getContent() != null && !result.getContent().trim().isEmpty()) {
-                log.info("[AgentStream] step {} → final text (streamed)", Integer.valueOf(steps));
                 messages.add(result.getAssistantMessage());
                 conversationStore.putAgentMessages(convId, messages);
                 long latency = System.currentTimeMillis() - start;
-                log.info("[AgentStream] done steps={}, latencyMs={}", Integer.valueOf(steps), Long.valueOf(latency));
-                Map<String, Object> done = new HashMap<String, Object>();
-                done.put("latencyMs", Long.valueOf(latency));
-                done.put("stepsUsed", Integer.valueOf(steps));
-                done.put("conversationId", convId);
-                done.put("model", llmProperties.getModel());
-                done.put("answer", result.getContent());
-                emitter.send(SseEmitter.event().name("done").data(objectMapper.writeValueAsString(done), jsonUtf8));
+                log.info("[AgentStream] done conversationId={} model={} steps={} latencyMs={} answerChars={}",
+                        convId, llmProperties.getModel(), Integer.valueOf(steps), Long.valueOf(latency),
+                        Integer.valueOf(result.getContent().length()));
+                log.debug("[AgentStream] answer: {}", JsonLogging.truncate(result.getContent(), 4000));
                 emitter.complete();
                 return;
             }
@@ -176,13 +159,6 @@ public class AgentService {
         }
 
         throw new IllegalStateException("Agent exceeded max steps (" + max + ") without final answer");
-    }
-
-    private static Map<String, Object> toolResultPayload(String name, String payload) {
-        Map<String, Object> m = new HashMap<String, Object>();
-        m.put("name", name);
-        m.put("content", JsonLogging.truncate(payload, 2000));
-        return m;
     }
 
     private AgentSession prepareAgentSession(String userMessage, String conversationId) {
