@@ -7,6 +7,9 @@ llm:
   model: hunyuan-turbos-latest
   timeout-ms: 15000
 
+agent:
+  max-steps: 8
+
 management:
   endpoints:
     web:

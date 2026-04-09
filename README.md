@@ -1,2 +1,2 @@
-# agent-agteway-demo
-agent-agteway-demo
+# agent-gateway-demo
+agent-gateway-demo
