@@ -69,6 +69,23 @@ public class ChatController {
         return agentService.run(request.getMessage(), request.getConversationId());
     }
 
+    /**
+     * SSE agent: stream=true with tools; {@code delta} for assistant tokens; {@code step}, {@code tool_call},
+     * {@code tool_result}, {@code done} as named events. First data line is JSON {@code conversationId}.
+     */
+    @PostMapping(value = "/agent/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter agentChatStream(@Valid @RequestBody ChatRequest request) {
+        SseEmitter emitter = new SseEmitter(0L);
+        CompletableFuture.runAsync(() -> {
+            try {
+                agentService.runStream(request.getMessage(), request.getConversationId(), emitter);
+            } catch (Exception e) {
+                emitter.completeWithError(e);
+            }
+        });
+        return emitter;
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException e) {
         Map<String, Object> body = new HashMap<String, Object>();
