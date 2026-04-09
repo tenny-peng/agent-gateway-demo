@@ -5,14 +5,17 @@ public class ChatResponse {
     private String answer;
     private String model;
     private long latencyMs;
+    /** Pass back on the next request to continue the same conversation (plain chat). */
+    private String conversationId;
 
     public ChatResponse() {
     }
 
-    public ChatResponse(String answer, String model, long latencyMs) {
+    public ChatResponse(String answer, String model, long latencyMs, String conversationId) {
         this.answer = answer;
         this.model = model;
         this.latencyMs = latencyMs;
+        this.conversationId = conversationId;
     }
 
     public String getAnswer() {
@@ -37,5 +40,13 @@ public class ChatResponse {
 
     public void setLatencyMs(long latencyMs) {
         this.latencyMs = latencyMs;
+    }
+
+    public String getConversationId() {
+        return conversationId;
+    }
+
+    public void setConversationId(String conversationId) {
+        this.conversationId = conversationId;
     }
 }

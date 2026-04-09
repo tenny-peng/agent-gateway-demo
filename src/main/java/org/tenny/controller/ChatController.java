@@ -35,7 +35,7 @@ public class ChatController {
 
     @PostMapping("/chat")
     public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
-        return chatService.chat(request.getMessage());
+        return chatService.chat(request.getMessage(), request.getConversationId());
     }
 
     /**
@@ -46,9 +46,14 @@ public class ChatController {
     public SseEmitter chatStream(@Valid @RequestBody ChatRequest request) {
         SseEmitter emitter = new SseEmitter(0L);
         MediaType textUtf8 = MediaType.parseMediaType("text/plain;charset=UTF-8");
+        MediaType jsonUtf8 = MediaType.parseMediaType("application/json;charset=UTF-8");
         CompletableFuture.runAsync(() -> {
             try {
-                chatService.streamChat(request.getMessage(), piece ->
+                ChatService.StreamChatContext ctx = chatService.prepareStreamContext(
+                        request.getMessage(), request.getConversationId());
+                String meta = "{\"conversationId\":\"" + ctx.getConversationId() + "\"}";
+                emitter.send(SseEmitter.event().data(meta, jsonUtf8));
+                chatService.streamWithContext(ctx, piece ->
                         emitter.send(SseEmitter.event().data(piece, textUtf8)));
                 emitter.complete();
             } catch (Exception e) {
@@ -61,7 +66,7 @@ public class ChatController {
     /** Agent: tool calling loop (demo: query_waybill). */
     @PostMapping("/agent/chat")
     public AgentChatResponse agentChat(@Valid @RequestBody ChatRequest request) {
-        return agentService.run(request.getMessage());
+        return agentService.run(request.getMessage(), request.getConversationId());
     }
 
     @ExceptionHandler(IllegalStateException.class)

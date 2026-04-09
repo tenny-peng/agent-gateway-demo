@@ -6,15 +6,17 @@ public class AgentChatResponse {
     private String model;
     private long latencyMs;
     private int stepsUsed;
+    private String conversationId;
 
     public AgentChatResponse() {
     }
 
-    public AgentChatResponse(String answer, String model, long latencyMs, int stepsUsed) {
+    public AgentChatResponse(String answer, String model, long latencyMs, int stepsUsed, String conversationId) {
         this.answer = answer;
         this.model = model;
         this.latencyMs = latencyMs;
         this.stepsUsed = stepsUsed;
+        this.conversationId = conversationId;
     }
 
     public String getAnswer() {
@@ -47,5 +49,13 @@ public class AgentChatResponse {
 
     public void setStepsUsed(int stepsUsed) {
         this.stepsUsed = stepsUsed;
+    }
+
+    public String getConversationId() {
+        return conversationId;
+    }
+
+    public void setConversationId(String conversationId) {
+        this.conversationId = conversationId;
     }
 }
