@@ -6,6 +6,7 @@ llm:
   api-key: ${HUNYUAN_API_KEY:}
   model: hunyuan-turbos-latest
   timeout-ms: 15000
+  stream-timeout-ms: 120000
 
 agent:
   max-steps: 8

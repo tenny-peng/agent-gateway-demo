@@ -16,6 +16,11 @@ public class LlmProperties {
 
     private int timeoutMs = 15000;
 
+    /**
+     * Read timeout for streaming responses (token gaps can be long).
+     */
+    private int streamTimeoutMs = 120000;
+
     public String getBaseUrl() {
         return baseUrl;
     }
@@ -46,5 +51,13 @@ public class LlmProperties {
 
     public void setTimeoutMs(int timeoutMs) {
         this.timeoutMs = timeoutMs;
+    }
+
+    public int getStreamTimeoutMs() {
+        return streamTimeoutMs;
+    }
+
+    public void setStreamTimeoutMs(int streamTimeoutMs) {
+        this.streamTimeoutMs = streamTimeoutMs;
     }
 }

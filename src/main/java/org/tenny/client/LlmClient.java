@@ -56,12 +56,12 @@ public class LlmClient {
      */
     public LlmCompletionResult chatCompletions(List<Map<String, Object>> messages,
                                                List<Map<String, Object>> tools) {
-        String apiKey = normalizeApiKey(llmProperties.getApiKey());
+        String apiKey = LlmKeyUtil.normalizeApiKey(llmProperties.getApiKey());
         if (apiKey.isEmpty()) {
             throw new IllegalStateException("Missing API key: set llm.api-key or environment variable HUNYUAN_API_KEY");
         }
 
-        String url = trimTrailingSlash(llmProperties.getBaseUrl()) + "/chat/completions";
+        String url = LlmKeyUtil.trimTrailingSlash(llmProperties.getBaseUrl()) + "/chat/completions";
 
         Map<String, Object> body = new HashMap<String, Object>();
         body.put("model", llmProperties.getModel());
@@ -181,31 +181,4 @@ public class LlmClient {
         return tools;
     }
 
-    private static String normalizeApiKey(String raw) {
-        if (raw == null) {
-            return "";
-        }
-        String s = raw.trim();
-        if (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\"")) {
-            s = s.substring(1, s.length() - 1).trim();
-        }
-        if (s.length() >= 2 && s.startsWith("'") && s.endsWith("'")) {
-            s = s.substring(1, s.length() - 1).trim();
-        }
-        if (s.regionMatches(true, 0, "Bearer ", 0, 7)) {
-            s = s.substring(7).trim();
-        }
-        return s;
-    }
-
-    private static String trimTrailingSlash(String base) {
-        if (base == null) {
-            return "";
-        }
-        String s = base.trim();
-        while (s.endsWith("/")) {
-            s = s.substring(0, s.length() - 1);
-        }
-        return s;
-    }
 }
