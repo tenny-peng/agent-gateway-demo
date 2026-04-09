@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>agent-gateway-demo</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4d;
+      --text: #e6edf3;
+      --muted: #8b9cb3;
+      --accent: #58a6ff;
+      --ok: #3fb950;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      padding: 1.25rem;
+      max-width: 52rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.75rem; }
+    .hint { color: var(--muted); font-size: 0.8rem; margin-bottom: 1rem; line-height: 1.5; }
+    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+    label { font-size: 0.85rem; color: var(--muted); }
+    select, textarea, button, input[type="text"] {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.45rem 0.6rem;
+      font-size: 0.9rem;
+    }
+    textarea {
+      width: 100%;
+      min-height: 5rem;
+      resize: vertical;
+      font-family: inherit;
+    }
+    button {
+      cursor: pointer;
+      background: #212c3d;
+    }
+    button.primary {
+      background: #1f6feb;
+      border-color: #388bfd;
+      color: #fff;
+    }
+    button.primary:hover { filter: brightness(1.08); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #convId {
+      flex: 1;
+      min-width: 12rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    #out {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      min-height: 8rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
+    #out:empty::before {
+      content: "回复会出现在这里…";
+      color: var(--muted);
+    }
+    .status { font-size: 0.8rem; color: var(--muted); min-height: 1.25rem; }
+    .status.ok { color: var(--ok); }
+    .status.err { color: #f85149; }
+  </style>
+</head>
+<body>
+  <h1>agent-gateway-demo · 流式测试</h1>
+  <p class="hint">
+    与 <code>/api/chat/stream</code>、<code>/api/agent/chat/stream</code> 一致：首包 JSON 带 <code>conversationId</code>，随后为 UTF-8 文本分片。需配置 <code>HUNYUAN_API_KEY</code> 后启动应用（默认端口 8080）。
+  </p>
+
+  <div class="row">
+    <label for="mode">接口</label>
+    <select id="mode">
+      <option value="/api/chat/stream">Chat 流式</option>
+      <option value="/api/agent/chat/stream">Agent 流式（工具）</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <textarea id="msg" placeholder="输入消息… 例如：你好 / 查一下运单 SF1234567890（Agent）"></textarea>
+  </div>
+
+  <div class="row">
+    <button type="button" class="primary" id="send">发送</button>
+    <button type="button" id="newConv">新会话</button>
+    <span style="flex:1"></span>
+    <label for="convId">conversationId</label>
+    <input type="text" id="convId" readonly placeholder="（首轮后自动填入）" />
+  </div>
+
+  <div class="status" id="status"></div>
+  <div id="out"></div>
+
+  <script>
+    (function () {
+      var msg = document.getElementById("msg");
+      var mode = document.getElementById("mode");
+      var send = document.getElementById("send");
+      var newConv = document.getElementById("newConv");
+      var convId = document.getElementById("convId");
+      var out = document.getElementById("out");
+      var status = document.getElementById("status");
+
+      function setStatus(text, cls) {
+        status.textContent = text || "";
+        status.className = "status" + (cls ? " " + cls : "");
+      }
+
+      newConv.addEventListener("click", function () {
+        convId.value = "";
+        out.textContent = "";
+        setStatus("已清空会话", "ok");
+      });
+
+      function parseSseEvents(buffer, onEventData) {
+        var dataLines = [];
+        var lineEnd;
+        while ((lineEnd = buffer.indexOf("\n")) !== -1) {
+          var raw = buffer.slice(0, lineEnd);
+          buffer = buffer.slice(lineEnd + 1);
+          var line = raw.replace(/\r$/, "");
+          if (line === "") {
+            if (dataLines.length) {
+              onEventData(dataLines.join("\n"));
+              dataLines = [];
+            }
+            continue;
+          }
+          // Ignore event/id/retry/comment lines for this minimal demo.
+          if (line.indexOf("data:") === 0) {
+            var payload = line.slice(5);
+            if (payload.indexOf(" ") === 0) {
+              payload = payload.slice(1);
+            }
+            dataLines.push(payload);
+          }
+        }
+        return buffer;
+      }
+
+      send.addEventListener("click", async function () {
+        var text = (msg.value || "").trim();
+        if (!text) {
+          setStatus("请先输入消息", "err");
+          return;
+        }
+        send.disabled = true;
+        out.textContent = "";
+        setStatus("请求中…");
+
+        var body = {
+          message: text,
+          conversationId: convId.value.trim() || undefined
+        };
+
+        try {
+          var res = await fetch(mode.value, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+          if (!res.ok) {
+            var errText = await res.text();
+            throw new Error("HTTP " + res.status + ": " + errText);
+          }
+          if (!res.body || !res.body.getReader) {
+            throw new Error("浏览器不支持流式读取");
+          }
+
+          var reader = res.body.getReader();
+          var dec = new TextDecoder();
+          var buf = "";
+          var outText = "";
+
+          while (true) {
+            var part = await reader.read();
+            if (part.done) break;
+            buf += dec.decode(part.value, { stream: true });
+            buf = parseSseEvents(buf, function (payload) {
+              var j = null;
+              try {
+                j = JSON.parse(payload);
+              } catch (e) {
+                outText += payload;
+                out.textContent = outText;
+                return;
+              }
+              if (j && typeof j.conversationId === "string" && j.conversationId) {
+                convId.value = j.conversationId;
+                return;
+              }
+              outText += payload;
+              out.textContent = outText;
+            });
+          }
+          if (buf.length) {
+            buf = parseSseEvents(buf + "\n\n", function (payload) {
+              try {
+                var j = JSON.parse(payload);
+                if (j && typeof j.conversationId === "string" && j.conversationId) {
+                  convId.value = j.conversationId;
+                  return;
+                }
+              } catch (e) {}
+              outText += payload;
+              out.textContent = outText;
+            });
+          }
+
+          setStatus("完成", "ok");
+        } catch (e) {
+          setStatus(String(e.message || e), "err");
+        } finally {
+          send.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
