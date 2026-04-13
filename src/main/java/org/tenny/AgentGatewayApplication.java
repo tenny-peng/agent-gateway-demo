@@ -5,9 +5,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.tenny.config.AgentProperties;
 import org.tenny.config.LlmProperties;
+import org.tenny.config.RagProperties;
 
 @SpringBootApplication
-@EnableConfigurationProperties({LlmProperties.class, AgentProperties.class})
+@EnableConfigurationProperties({LlmProperties.class, AgentProperties.class, RagProperties.class})
 public class AgentGatewayApplication {
 
     public static void main(String[] args) {

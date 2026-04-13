@@ -5,6 +5,7 @@ import org.tenny.client.LlmClient;
 import org.tenny.client.LlmStreamClient;
 import org.tenny.config.LlmProperties;
 import org.tenny.dto.ChatResponse;
+import org.tenny.rag.RagService;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -15,19 +16,24 @@ import java.util.Map;
 @Service
 public class ChatService {
 
+    private static final String CHAT_SYSTEM_BASE = "You are a helpful assistant.";
+
     private final LlmClient llmClient;
     private final LlmStreamClient llmStreamClient;
     private final LlmProperties llmProperties;
     private final ConversationStore conversationStore;
+    private final RagService ragService;
 
     public ChatService(LlmClient llmClient,
                        LlmStreamClient llmStreamClient,
                        LlmProperties llmProperties,
-                       ConversationStore conversationStore) {
+                       ConversationStore conversationStore,
+                       RagService ragService) {
         this.llmClient = llmClient;
         this.llmStreamClient = llmStreamClient;
         this.llmProperties = llmProperties;
         this.conversationStore = conversationStore;
+        this.ragService = ragService;
     }
 
     /**
@@ -50,12 +56,15 @@ public class ChatService {
             messages.add(userMessage(userMessage));
         }
 
+        ragService.augmentChatSystem(messages, userMessage);
+
         long start = System.currentTimeMillis();
         String answer = llmClient.chatCompletions(messages);
         long latency = System.currentTimeMillis() - start;
 
         List<Map<String, String>> toSave = new ArrayList<Map<String, String>>(messages);
         toSave.add(assistantMessage(answer));
+        ragService.stripRagFromChatMessages(toSave);
         conversationStore.putChatMessages(id, toSave);
 
         return new ChatResponse(answer, llmProperties.getModel(), latency, id);
@@ -80,6 +89,7 @@ public class ChatService {
             messages.addAll(previous);
             messages.add(userMessage(userMessage));
         }
+        ragService.augmentChatSystem(messages, userMessage);
         return new StreamChatContext(id, messages);
     }
 
@@ -94,6 +104,7 @@ public class ChatService {
         });
         List<Map<String, String>> next = new ArrayList<Map<String, String>>(ctx.getMessages());
         next.add(assistantMessage(acc.toString()));
+        ragService.stripRagFromChatMessages(next);
         conversationStore.putChatMessages(ctx.getConversationId(), next);
     }
 
@@ -118,7 +129,7 @@ public class ChatService {
     private static Map<String, String> chatSystem() {
         Map<String, String> m = new HashMap<String, String>();
         m.put("role", "system");
-        m.put("content", "You are a helpful assistant.");
+        m.put("content", CHAT_SYSTEM_BASE);
         return m;
     }
 

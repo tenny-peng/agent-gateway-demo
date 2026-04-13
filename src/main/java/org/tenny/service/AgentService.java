@@ -12,6 +12,7 @@ import org.tenny.client.LlmToolCall;
 import org.tenny.config.AgentProperties;
 import org.tenny.config.LlmProperties;
 import org.tenny.dto.AgentChatResponse;
+import org.tenny.rag.RagService;
 import org.tenny.tool.WaybillQueryTool;
 import org.tenny.util.JsonLogging;
 
@@ -26,25 +27,32 @@ public class AgentService {
 
     private static final Logger log = LoggerFactory.getLogger(AgentService.class);
 
+    private static final String AGENT_SYSTEM_BASE =
+            "你是物流助手。用户询问运单、快递、物流状态时，必须调用 query_waybill 工具查询，"
+                    + "不要编造轨迹。工具返回后，用简洁中文回复用户。";
+
     private final LlmClient llmClient;
     private final LlmStreamClient llmStreamClient;
     private final LlmProperties llmProperties;
     private final AgentProperties agentProperties;
     private final WaybillQueryTool waybillQueryTool;
     private final ConversationStore conversationStore;
+    private final RagService ragService;
 
     public AgentService(LlmClient llmClient,
                         LlmStreamClient llmStreamClient,
                         LlmProperties llmProperties,
                         AgentProperties agentProperties,
                         WaybillQueryTool waybillQueryTool,
-                        ConversationStore conversationStore) {
+                        ConversationStore conversationStore,
+                        RagService ragService) {
         this.llmClient = llmClient;
         this.llmStreamClient = llmStreamClient;
         this.llmProperties = llmProperties;
         this.agentProperties = agentProperties;
         this.waybillQueryTool = waybillQueryTool;
         this.conversationStore = conversationStore;
+        this.ragService = ragService;
     }
 
     /**
@@ -86,6 +94,7 @@ public class AgentService {
                 assistant.put("role", "assistant");
                 assistant.put("content", result.getContent());
                 messages.add(assistant);
+                ragService.stripRagFromAgentMessages(messages);
                 conversationStore.putAgentMessages(convId, messages);
 
                 long latency = System.currentTimeMillis() - start;
@@ -145,6 +154,7 @@ public class AgentService {
 
             if (result.getContent() != null && !result.getContent().trim().isEmpty()) {
                 messages.add(result.getAssistantMessage());
+                ragService.stripRagFromAgentMessages(messages);
                 conversationStore.putAgentMessages(convId, messages);
                 long latency = System.currentTimeMillis() - start;
                 log.info("[AgentStream] done conversationId={} model={} steps={} latencyMs={} answerChars={}",
@@ -169,9 +179,7 @@ public class AgentService {
             convId = conversationStore.newConversationId();
             Map<String, Object> system = new HashMap<String, Object>();
             system.put("role", "system");
-            system.put("content",
-                    "你是物流助手。用户询问运单、快递、物流状态时，必须调用 query_waybill 工具查询，"
-                            + "不要编造轨迹。工具返回后，用简洁中文回复用户。");
+            system.put("content", AGENT_SYSTEM_BASE);
             messages.add(system);
             Map<String, Object> user = new HashMap<String, Object>();
             user.put("role", "user");
@@ -189,6 +197,7 @@ public class AgentService {
             user.put("content", userMessage);
             messages.add(user);
         }
+        ragService.augmentAgentSystem(messages, userMessage);
         return new AgentSession(convId, messages);
     }
 

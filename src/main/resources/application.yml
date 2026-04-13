@@ -11,6 +11,12 @@ llm:
 agent:
   max-steps: 8
 
+rag:
+  enabled: true
+  top-k: 3
+  max-chunk-chars: 600
+  corpus-pattern: classpath:rag/*.md
+
 management:
   endpoints:
     web:
