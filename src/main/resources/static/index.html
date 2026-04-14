@@ -43,6 +43,26 @@
     .auth-panel a { color: var(--accent); text-decoration: none; }
     .auth-panel a:hover { text-decoration: underline; }
     #authInfo { color: var(--muted); margin-right: 0.35rem; }
+    .auth-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .auth-actions a {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.38rem 0.72rem;
+      background: #212c3d;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.88rem;
+    }
+    .auth-actions a.primary {
+      background: #1f6feb;
+      border-color: #388bfd;
+      color: #fff;
+    }
+    .auth-actions a:hover { filter: brightness(1.08); text-decoration: none; }
     .hint { color: var(--muted); font-size: 0.8rem; margin-bottom: 1rem; line-height: 1.5; }
     .tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
     .tab {
@@ -72,7 +92,6 @@
       padding: 0.45rem 0.6rem;
       font-size: 0.9rem;
     }
-    input.auth-input { min-width: 7rem; max-width: 12rem; }
     textarea {
       width: 100%;
       min-height: 5rem;
@@ -157,10 +176,10 @@
 
   <div class="auth-panel" id="authPanel">
     <div class="auth-logged-out" id="authLoggedOut">
-      <input type="text" id="authUser" class="auth-input" placeholder="用户名" autocomplete="username" />
-      <input type="password" id="authPass" class="auth-input" placeholder="密码（注册≥6位）" autocomplete="current-password" />
-      <button type="button" class="primary" id="btnLogin">登录</button>
-      <button type="button" id="btnRegister">注册</button>
+      <div class="auth-actions">
+        <a href="/login.html" class="primary">去登录</a>
+        <a href="/register.html">去注册</a>
+      </div>
     </div>
     <div class="auth-logged-in hidden" id="authLoggedIn">
       <span id="authInfo"></span>
@@ -211,10 +230,6 @@
       var status = document.getElementById("status");
       var tabs = document.querySelectorAll(".tab");
 
-      var authUser = document.getElementById("authUser");
-      var authPass = document.getElementById("authPass");
-      var btnLogin = document.getElementById("btnLogin");
-      var btnRegister = document.getElementById("btnRegister");
       var btnLogout = document.getElementById("btnLogout");
       var authLoggedOut = document.getElementById("authLoggedOut");
       var authLoggedIn = document.getElementById("authLoggedIn");
@@ -267,80 +282,6 @@
           showLoggedOut();
         });
       }
-
-      btnLogin.addEventListener("click", function () {
-        var u = (authUser.value || "").trim();
-        var p = authPass.value || "";
-        if (!u || !p) {
-          setStatus("请填写用户名和密码", "err");
-          return;
-        }
-        setStatus("登录中…", "");
-        fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: u, password: p })
-        })
-          .then(function (res) {
-            if (!res.ok) {
-              return res.json().then(function (b) {
-                throw new Error((b && b.error) ? b.error : "HTTP " + res.status);
-              });
-            }
-            return res.json();
-          })
-          .then(function (data) {
-            if (data && data.token) {
-              localStorage.setItem(TOKEN_KEY, data.token);
-            }
-            return refreshSession();
-          })
-          .then(function () {
-            setStatus("已登录", "ok");
-          })
-          .catch(function (e) {
-            setStatus(String(e.message || e), "err");
-          });
-      });
-
-      btnRegister.addEventListener("click", function () {
-        var u = (authUser.value || "").trim();
-        var p = authPass.value || "";
-        if (!u || !p) {
-          setStatus("请填写用户名和密码", "err");
-          return;
-        }
-        if (p.length < 6) {
-          setStatus("密码至少 6 位", "err");
-          return;
-        }
-        setStatus("注册中…", "");
-        fetch("/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: u, password: p })
-        })
-          .then(function (res) {
-            if (!res.ok) {
-              return res.json().then(function (b) {
-                throw new Error((b && b.error) ? b.error : "HTTP " + res.status);
-              });
-            }
-            return res.json();
-          })
-          .then(function (data) {
-            if (data && data.token) {
-              localStorage.setItem(TOKEN_KEY, data.token);
-            }
-            return refreshSession();
-          })
-          .then(function () {
-            setStatus("注册成功，已自动登录", "ok");
-          })
-          .catch(function (e) {
-            setStatus(String(e.message || e), "err");
-          });
-      });
 
       btnLogout.addEventListener("click", function () {
         var t = getToken();

@@ -34,13 +34,9 @@ mvn spring-boot:run
 
 ---
 
-## 认证与会话（UUID + Redis，非 JWT）
+## 认证与会话（UUID + Redis）
 
-**和「Redis 多节点」的关系**：经典 **JWT** 多数场景是各节点 **本地验签**，并不把 JWT 存进 Redis；和集群是否多节点没有必然绑定。
-
-**JWT 常被质疑的点**主要是：令牌在过期前自带「有效性」，服务端若不做黑名单/版本表，则**难以单点立刻作废**（登出、封号）；若前端把 token 放 `localStorage`，**XSS 偷令牌**后攻击者可复用至过期——这点 **opaque token 同样面临**，要靠 HttpOnly/CSP 等综合治理。
-
-**本项目的做法**：登录后发 **随机 UUID**，会话 payload 与 TTL 放在 **Redis**；请求头 `Authorization: Bearer <uuid>`；**`POST /api/auth/logout` 删 Redis 键**即可立即使服务端会话失效（多实例共享同一 Redis/集群即可）。
+**登录后发 **随机 UUID**，会话 payload 与 TTL 放在 **Redis**；请求头 `Authorization: Bearer <uuid>`；**`POST /api/auth/logout` 删 Redis 键**即可立即使服务端会话失效（多实例共享同一 Redis/集群即可）。
 
 公开接口（无需 Bearer）：`POST /api/auth/register`、`POST /api/auth/login`。其余 `/api/generic/**`、`/api/logistics/**`、`/api/auth/me`、`/api/auth/logout`、`/api/admin/**` 需带 Bearer。可选环境变量：`MYSQL_USER`、`MYSQL_PASSWORD`、`REDIS_*`、`ADMIN_BOOTSTRAP_USERNAME` / `ADMIN_BOOTSTRAP_PASSWORD`（若设置且库中无同名用户则插入管理员）。
 
@@ -97,9 +93,9 @@ powershell -ExecutionPolicy Bypass -File scripts/eval-run.ps1 -ApiToken "<token>
 
 ---
 
-## 学习与踩坑记录（思路速记）
+## 学习与踩坑记录
 
-> 详细实现以代码为准；此处只记 **问题是什么、大致怎么解**，方便自己回顾与读者扫一眼。
+> 详细实现以代码为准；此处只记 **问题是什么、大致怎么解**。
 
 ### 1. 流式输出：从「整段再等」到「逐字/逐段」
 
