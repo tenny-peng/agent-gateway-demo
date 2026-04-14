@@ -1,0 +1,64 @@
+{
+  "comment": "在应用已启动且已配置 HUNYUAN_API_KEY 时，于项目根目录执行: powershell -File scripts/eval-run.ps1",
+  "baseUrl": "http://localhost:8080",
+  "cases": [
+    {
+      "id": "chat-hello",
+      "name": "普通聊天有回复",
+      "path": "/api/generic/chat",
+      "message": "用一句话介绍你自己。",
+      "conversationId": "",
+      "expect": {
+        "httpStatus": 200,
+        "conversationIdRequired": true,
+        "answerMinLength": 2
+      }
+    },
+    {
+      "id": "agent-waybill-tool",
+      "name": "Agent：运单查询应走工具（steps 通常≥2）",
+      "path": "/api/logistics/agent/chat",
+      "message": "查一下运单 SF001 的物流状态",
+      "conversationId": "",
+      "expect": {
+        "httpStatus": 200,
+        "conversationIdRequired": true,
+        "stepsUsedMin": 2,
+        "answerContainsAny": ["SF001", "运单", "演示", "物流"]
+      }
+    },
+    {
+      "id": "agent-rag-delay",
+      "name": "Agent：延误场景有实质回复（关键词易随模型变化，此处只做弱断言）",
+      "path": "/api/logistics/agent/chat",
+      "message": "客户问为什么晚了，客服应该怎么跟客户解释延误？请按要点列三条。",
+      "conversationId": "",
+      "expect": {
+        "httpStatus": 200,
+        "answerMinLength": 40
+      }
+    },
+    {
+      "id": "agent-multi-turn",
+      "name": "Agent：多轮（先查单再问跟进）",
+      "path": "/api/logistics/agent/chat",
+      "turns": [
+        {
+          "message": "查运单 SF001",
+          "expect": {
+            "httpStatus": 200,
+            "conversationIdRequired": true,
+            "stepsUsedMin": 2
+          }
+        },
+        {
+          "message": "如果客户追问为什么还没到，怎么回复？",
+          "expect": {
+            "httpStatus": 200,
+            "answerMinLength": 10
+          }
+        }
+      ]
+    }
+  ]
+}
