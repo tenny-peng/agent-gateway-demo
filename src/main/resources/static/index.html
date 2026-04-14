@@ -28,6 +28,24 @@
     }
     h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.75rem; }
     .hint { color: var(--muted); font-size: 0.8rem; margin-bottom: 1rem; line-height: 1.5; }
+    .tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    .tab {
+      cursor: pointer;
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px 6px 0 0;
+      border: 1px solid transparent;
+      font-size: 0.88rem;
+      color: var(--muted);
+      background: transparent;
+    }
+    .tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .tab.active {
+      color: var(--text);
+      border-color: var(--border);
+      border-bottom-color: var(--panel);
+      margin-bottom: -1px;
+      background: var(--panel);
+    }
     .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
     label { font-size: 0.85rem; color: var(--muted); }
     select, textarea, button, input[type="text"] {
@@ -79,28 +97,28 @@
     .status { font-size: 0.8rem; color: var(--muted); min-height: 1.25rem; }
     .status.ok { color: var(--ok); }
     .status.err { color: #f85149; }
+    code { font-size: 0.82em; }
   </style>
 </head>
 <body>
   <h1>agent-gateway-demo · 流式测试</h1>
   <p class="hint">
-    与 <code>/api/chat/stream</code>、<code>/api/agent/chat/stream</code> 一致：首包 JSON 带 <code>conversationId</code>，随后为 UTF-8 文本分片。需配置 <code>HUNYUAN_API_KEY</code> 后启动应用（默认端口 8080）。
+    <strong>通用</strong>：<code>POST /api/generic/chat/stream</code>（无工具）。<strong>物流客服</strong>：
+    <code>POST /api/logistics/agent/chat/stream</code>（<code>query_waybill</code>）。首包 JSON 含
+    <code>conversationId</code>，随后 UTF-8 文本分片。需配置 <code>HUNYUAN_API_KEY</code>（默认 8080）。
   </p>
 
-  <div class="row">
-    <label for="mode">接口</label>
-    <select id="mode">
-      <option value="/api/chat/stream">Chat 流式</option>
-      <option value="/api/agent/chat/stream">Agent 流式（工具）</option>
-    </select>
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab active" data-mode="generic" role="tab" aria-selected="true">通用问答</button>
+    <button type="button" class="tab" data-mode="logistics" role="tab" aria-selected="false">物流客服（业务 Agent）</button>
   </div>
 
   <div class="row">
-    <textarea id="msg" placeholder="输入消息… 例如：你好 / 查一下运单 SF1234567890（Agent）"></textarea>
+    <textarea id="msg" placeholder="输入消息…"></textarea>
   </div>
 
   <div class="row">
-    <button type="button" class="primary" id="send">发送</button>
+    <button type="button" class="primary" id="send">发送（流式）</button>
     <button type="button" id="newConv">新会话</button>
     <span style="flex:1"></span>
     <label for="convId">conversationId</label>
@@ -113,22 +131,56 @@
   <script>
     (function () {
       var msg = document.getElementById("msg");
-      var mode = document.getElementById("mode");
       var send = document.getElementById("send");
       var newConv = document.getElementById("newConv");
       var convId = document.getElementById("convId");
       var out = document.getElementById("out");
       var status = document.getElementById("status");
+      var tabs = document.querySelectorAll(".tab");
+
+      var mode = "generic";
+      var convByMode = { generic: "", logistics: "" };
+
+      var streamUrl = {
+        generic: "/api/generic/chat/stream",
+        logistics: "/api/logistics/agent/chat/stream"
+      };
+
+      var placeholders = {
+        generic: "例如：用三句话解释什么是 RAG",
+        logistics: "例如：查一下运单 SF001 的状态 / 延误怎么跟客户说"
+      };
 
       function setStatus(text, cls) {
         status.textContent = text || "";
         status.className = "status" + (cls ? " " + cls : "");
       }
 
+      function applyMode(m) {
+        convByMode[mode] = convId.value.trim();
+        mode = m;
+        convId.value = convByMode[m] || "";
+        msg.placeholder = placeholders[m];
+        tabs.forEach(function (t) {
+          var on = t.getAttribute("data-mode") === m;
+          t.classList.toggle("active", on);
+          t.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        out.textContent = "";
+        setStatus("", "");
+      }
+
+      tabs.forEach(function (t) {
+        t.addEventListener("click", function () {
+          applyMode(t.getAttribute("data-mode"));
+        });
+      });
+
       newConv.addEventListener("click", function () {
         convId.value = "";
+        convByMode[mode] = "";
         out.textContent = "";
-        setStatus("已清空会话", "ok");
+        setStatus("已清空当前入口的会话", "ok");
       });
 
       function parseSseEvents(buffer, onEventData) {
@@ -145,7 +197,6 @@
             }
             continue;
           }
-          // Ignore event/id/retry/comment lines for this minimal demo.
           if (line.indexOf("data:") === 0) {
             var payload = line.slice(5);
             if (payload.indexOf(" ") === 0) {
@@ -167,13 +218,14 @@
         out.textContent = "";
         setStatus("请求中…");
 
+        var url = streamUrl[mode];
         var body = {
           message: text,
           conversationId: convId.value.trim() || undefined
         };
 
         try {
-          var res = await fetch(mode.value, {
+          var res = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body)
@@ -206,6 +258,7 @@
               }
               if (j && typeof j.conversationId === "string" && j.conversationId) {
                 convId.value = j.conversationId;
+                convByMode[mode] = j.conversationId;
                 return;
               }
               outText += payload;
@@ -218,6 +271,7 @@
                 var j = JSON.parse(payload);
                 if (j && typeof j.conversationId === "string" && j.conversationId) {
                   convId.value = j.conversationId;
+                  convByMode[mode] = j.conversationId;
                   return;
                 }
               } catch (e) {}
@@ -233,6 +287,8 @@
           send.disabled = false;
         }
       });
+
+      applyMode("generic");
     })();
   </script>
 </body>
