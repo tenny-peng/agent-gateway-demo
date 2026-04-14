@@ -32,11 +32,18 @@ mvn spring-boot:run
 
 浏览器打开 **http://localhost:8080/**；评测见下文「评测脚本」。
 
+### 静态页面说明
+
+- 首页保留核心聊天交互：入口切换（通用 / 物流）、输入、发送、新会话。  
+- 登录与注册已拆为独立页面：`/login.html`、`/register.html`。  
+- `conversationId`会在内部保存并随下一轮请求透传，实现多轮会话。  
+- 回复在整段流结束后统一进行 Markdown 渲染（`marked + DOMPurify`）。
+
 ---
 
 ## 认证与会话（UUID + Redis）
 
-**登录后发 **随机 UUID**，会话 payload 与 TTL 放在 **Redis**；请求头 `Authorization: Bearer <uuid>`；**`POST /api/auth/logout` 删 Redis 键**即可立即使服务端会话失效（多实例共享同一 Redis/集群即可）。
+登录后发 **随机 UUID**，会话 payload 与 TTL 放在 **Redis**；请求头 `Authorization: Bearer <uuid>`；**`POST /api/auth/logout` 删 Redis 键**即可立即使服务端会话失效。
 
 公开接口（无需 Bearer）：`POST /api/auth/register`、`POST /api/auth/login`。其余 `/api/generic/**`、`/api/logistics/**`、`/api/auth/me`、`/api/auth/logout`、`/api/admin/**` 需带 Bearer。可选环境变量：`MYSQL_USER`、`MYSQL_PASSWORD`、`REDIS_*`、`ADMIN_BOOTSTRAP_USERNAME` / `ADMIN_BOOTSTRAP_PASSWORD`（若设置且库中无同名用户则插入管理员）。
 
@@ -51,6 +58,13 @@ mvn spring-boot:run
 - **认证**：`/api/auth/register`、`/api/auth/login`、`/api/auth/me`、`/api/auth/logout`  
 - **管理**：`/api/admin/stats`（`ADMIN`）  
 - 全局：`IllegalStateException` → 400；`UnauthorizedException` → 401；`ForbiddenException` → 403（`ApiExceptionHandler`）
+
+前端调用说明（对应静态页）：
+
+- 首页聊天入口走流式接口：`POST /api/generic/chat/stream`、`POST /api/logistics/agent/chat/stream`。  
+- 认证走：`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`GET /api/auth/me`。  
+- 鉴权请求头：`Authorization: Bearer <token>`（token 为服务端 Redis 会话令牌）。  
+- 混元配置使用环境变量 `HUNYUAN_API_KEY`，默认端口 `8080`。
 
 ---
 
@@ -93,9 +107,9 @@ powershell -ExecutionPolicy Bypass -File scripts/eval-run.ps1 -ApiToken "<token>
 
 ---
 
-## 学习与踩坑记录
+## 学习与踩坑记录（思路速记）
 
-> 详细实现以代码为准；此处只记 **问题是什么、大致怎么解**。
+> 详细实现以代码为准；此处只记 **问题是什么、大致怎么解**，方便自己回顾与读者扫一眼。
 
 ### 1. 流式输出：从「整段再等」到「逐字/逐段」
 

@@ -63,7 +63,6 @@
       color: #fff;
     }
     .auth-actions a:hover { filter: brightness(1.08); text-decoration: none; }
-    .hint { color: var(--muted); font-size: 0.8rem; margin-bottom: 1rem; line-height: 1.5; }
     .tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
     .tab {
       cursor: pointer;
@@ -109,12 +108,6 @@
     }
     button.primary:hover { filter: brightness(1.08); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    #convId {
-      flex: 1;
-      min-width: 12rem;
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
     #out {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -188,14 +181,6 @@
     </div>
   </div>
 
-  <p class="hint">
-    需先<strong>登录</strong>后方可提问（服务端 UUID 会话存在 Redis，请求头：<code>Authorization: Bearer …</code>）。<strong>通用</strong>：
-    <code>POST /api/generic/chat/stream</code>。<strong>物流客服</strong>：
-    <code>POST /api/logistics/agent/chat/stream</code>。首包 JSON 含
-    <code>conversationId</code>。需配置 <code>HUNYUAN_API_KEY</code>（默认 8080）。
-    回复在<strong>整段流结束后</strong>会以 Markdown 渲染。
-  </p>
-
   <div class="tabs" role="tablist">
     <button type="button" class="tab active" data-mode="generic" role="tab" aria-selected="true">通用问答</button>
     <button type="button" class="tab" data-mode="logistics" role="tab" aria-selected="false">物流客服（业务 Agent）</button>
@@ -206,11 +191,8 @@
   </div>
 
   <div class="row">
-    <button type="button" class="primary" id="send">发送（流式）</button>
+    <button type="button" class="primary" id="send">发送</button>
     <button type="button" id="newConv">新会话</button>
-    <span style="flex:1"></span>
-    <label for="convId">conversationId</label>
-    <input type="text" id="convId" readonly placeholder="（首轮后自动填入）" />
   </div>
 
   <div class="status" id="status"></div>
@@ -225,7 +207,6 @@
       var msg = document.getElementById("msg");
       var send = document.getElementById("send");
       var newConv = document.getElementById("newConv");
-      var convId = document.getElementById("convId");
       var out = document.getElementById("out");
       var status = document.getElementById("status");
       var tabs = document.querySelectorAll(".tab");
@@ -332,9 +313,7 @@
       }
 
       function applyMode(m) {
-        convByMode[mode] = convId.value.trim();
         mode = m;
-        convId.value = convByMode[m] || "";
         msg.placeholder = placeholders[m];
         tabs.forEach(function (t) {
           var on = t.getAttribute("data-mode") === m;
@@ -352,7 +331,6 @@
       });
 
       newConv.addEventListener("click", function () {
-        convId.value = "";
         convByMode[mode] = "";
         clearOutput();
         setStatus("已清空当前入口的会话", "ok");
@@ -400,7 +378,7 @@
         var url = streamUrl[mode];
         var body = {
           message: text,
-          conversationId: convId.value.trim() || undefined
+          conversationId: convByMode[mode] || undefined
         };
 
         try {
@@ -441,7 +419,6 @@
                 return;
               }
               if (j && typeof j.conversationId === "string" && j.conversationId) {
-                convId.value = j.conversationId;
                 convByMode[mode] = j.conversationId;
                 return;
               }
@@ -454,7 +431,6 @@
               try {
                 var j = JSON.parse(payload);
                 if (j && typeof j.conversationId === "string" && j.conversationId) {
-                  convId.value = j.conversationId;
                   convByMode[mode] = j.conversationId;
                   return;
                 }
