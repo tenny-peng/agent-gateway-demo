@@ -27,6 +27,22 @@
       margin-right: auto;
     }
     h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.75rem; }
+    .hidden { display: none !important; }
+    .auth-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.88rem;
+    }
+    .auth-panel a { color: var(--accent); text-decoration: none; }
+    .auth-panel a:hover { text-decoration: underline; }
+    #authInfo { color: var(--muted); margin-right: 0.35rem; }
     .hint { color: var(--muted); font-size: 0.8rem; margin-bottom: 1rem; line-height: 1.5; }
     .tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
     .tab {
@@ -48,7 +64,7 @@
     }
     .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
     label { font-size: 0.85rem; color: var(--muted); }
-    select, textarea, button, input[type="text"] {
+    select, textarea, button, input[type="text"], input[type="password"] {
       background: var(--panel);
       border: 1px solid var(--border);
       color: var(--text);
@@ -56,6 +72,7 @@
       padding: 0.45rem 0.6rem;
       font-size: 0.9rem;
     }
+    input.auth-input { min-width: 7rem; max-width: 12rem; }
     textarea {
       width: 100%;
       min-height: 5rem;
@@ -90,6 +107,41 @@
       font-size: 0.9rem;
       line-height: 1.55;
     }
+    #out.md-body {
+      white-space: normal;
+    }
+    #out.md-body p { margin: 0.5em 0; }
+    #out.md-body p:first-child { margin-top: 0; }
+    #out.md-body strong { font-weight: 600; }
+    #out.md-body ul, #out.md-body ol { margin: 0.5em 0; padding-left: 1.35rem; }
+    #out.md-body li { margin: 0.2em 0; }
+    #out.md-body code {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 0.88em;
+      background: rgba(0, 0, 0, 0.28);
+      padding: 0.12em 0.4em;
+      border-radius: 4px;
+    }
+    #out.md-body pre {
+      background: #0d1117;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 0.6em 0;
+    }
+    #out.md-body pre code { background: none; padding: 0; }
+    #out.md-body h1, #out.md-body h2, #out.md-body h3 {
+      font-size: 1.02em;
+      font-weight: 600;
+      margin: 0.85em 0 0.4em;
+    }
+    #out.md-body hr { border: none; border-top: 1px solid var(--border); margin: 0.85rem 0; }
+    #out.md-body blockquote {
+      margin: 0.5em 0;
+      padding-left: 0.85rem;
+      border-left: 3px solid var(--border);
+      color: var(--muted);
+    }
     #out:empty::before {
       content: "回复会出现在这里…";
       color: var(--muted);
@@ -102,10 +154,27 @@
 </head>
 <body>
   <h1>agent-gateway-demo · 流式测试</h1>
+
+  <div class="auth-panel" id="authPanel">
+    <div class="auth-logged-out" id="authLoggedOut">
+      <input type="text" id="authUser" class="auth-input" placeholder="用户名" autocomplete="username" />
+      <input type="password" id="authPass" class="auth-input" placeholder="密码（注册≥6位）" autocomplete="current-password" />
+      <button type="button" class="primary" id="btnLogin">登录</button>
+      <button type="button" id="btnRegister">注册</button>
+    </div>
+    <div class="auth-logged-in hidden" id="authLoggedIn">
+      <span id="authInfo"></span>
+      <a href="/admin.html" id="linkAdmin" class="hidden">管理后台</a>
+      <button type="button" id="btnLogout">退出</button>
+    </div>
+  </div>
+
   <p class="hint">
-    <strong>通用</strong>：<code>POST /api/generic/chat/stream</code>（无工具）。<strong>物流客服</strong>：
-    <code>POST /api/logistics/agent/chat/stream</code>（<code>query_waybill</code>）。首包 JSON 含
-    <code>conversationId</code>，随后 UTF-8 文本分片。需配置 <code>HUNYUAN_API_KEY</code>（默认 8080）。
+    需先<strong>登录</strong>后方可提问（服务端 UUID 会话存在 Redis，请求头：<code>Authorization: Bearer …</code>）。<strong>通用</strong>：
+    <code>POST /api/generic/chat/stream</code>。<strong>物流客服</strong>：
+    <code>POST /api/logistics/agent/chat/stream</code>。首包 JSON 含
+    <code>conversationId</code>。需配置 <code>HUNYUAN_API_KEY</code>（默认 8080）。
+    回复在<strong>整段流结束后</strong>会以 Markdown 渲染。
   </p>
 
   <div class="tabs" role="tablist">
@@ -126,10 +195,14 @@
   </div>
 
   <div class="status" id="status"></div>
-  <div id="out"></div>
+  <div id="out" aria-live="polite"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
   <script>
     (function () {
+      var TOKEN_KEY = "agentGatewayJwt";
+
       var msg = document.getElementById("msg");
       var send = document.getElementById("send");
       var newConv = document.getElementById("newConv");
@@ -137,6 +210,152 @@
       var out = document.getElementById("out");
       var status = document.getElementById("status");
       var tabs = document.querySelectorAll(".tab");
+
+      var authUser = document.getElementById("authUser");
+      var authPass = document.getElementById("authPass");
+      var btnLogin = document.getElementById("btnLogin");
+      var btnRegister = document.getElementById("btnRegister");
+      var btnLogout = document.getElementById("btnLogout");
+      var authLoggedOut = document.getElementById("authLoggedOut");
+      var authLoggedIn = document.getElementById("authLoggedIn");
+      var authInfo = document.getElementById("authInfo");
+      var linkAdmin = document.getElementById("linkAdmin");
+
+      function getToken() {
+        return localStorage.getItem(TOKEN_KEY) || "";
+      }
+
+      function authHeadersJson() {
+        var h = { "Content-Type": "application/json" };
+        var t = getToken();
+        if (t) {
+          h["Authorization"] = "Bearer " + t;
+        }
+        return h;
+      }
+
+      function showLoggedOut() {
+        authLoggedOut.classList.remove("hidden");
+        authLoggedIn.classList.add("hidden");
+        linkAdmin.classList.add("hidden");
+      }
+
+      function showLoggedIn(username, role) {
+        authLoggedOut.classList.add("hidden");
+        authLoggedIn.classList.remove("hidden");
+        authInfo.textContent = username + " · " + role;
+        linkAdmin.classList.toggle("hidden", role !== "ADMIN");
+      }
+
+      function refreshSession() {
+        var t = getToken();
+        if (!t) {
+          showLoggedOut();
+          return Promise.resolve();
+        }
+        return fetch("/api/auth/me", { headers: authHeadersJson() }).then(function (res) {
+          if (!res.ok) {
+            localStorage.removeItem(TOKEN_KEY);
+            showLoggedOut();
+            return;
+          }
+          return res.json().then(function (me) {
+            showLoggedIn(me.username, me.role);
+          });
+        }).catch(function () {
+          localStorage.removeItem(TOKEN_KEY);
+          showLoggedOut();
+        });
+      }
+
+      btnLogin.addEventListener("click", function () {
+        var u = (authUser.value || "").trim();
+        var p = authPass.value || "";
+        if (!u || !p) {
+          setStatus("请填写用户名和密码", "err");
+          return;
+        }
+        setStatus("登录中…", "");
+        fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: u, password: p })
+        })
+          .then(function (res) {
+            if (!res.ok) {
+              return res.json().then(function (b) {
+                throw new Error((b && b.error) ? b.error : "HTTP " + res.status);
+              });
+            }
+            return res.json();
+          })
+          .then(function (data) {
+            if (data && data.token) {
+              localStorage.setItem(TOKEN_KEY, data.token);
+            }
+            return refreshSession();
+          })
+          .then(function () {
+            setStatus("已登录", "ok");
+          })
+          .catch(function (e) {
+            setStatus(String(e.message || e), "err");
+          });
+      });
+
+      btnRegister.addEventListener("click", function () {
+        var u = (authUser.value || "").trim();
+        var p = authPass.value || "";
+        if (!u || !p) {
+          setStatus("请填写用户名和密码", "err");
+          return;
+        }
+        if (p.length < 6) {
+          setStatus("密码至少 6 位", "err");
+          return;
+        }
+        setStatus("注册中…", "");
+        fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: u, password: p })
+        })
+          .then(function (res) {
+            if (!res.ok) {
+              return res.json().then(function (b) {
+                throw new Error((b && b.error) ? b.error : "HTTP " + res.status);
+              });
+            }
+            return res.json();
+          })
+          .then(function (data) {
+            if (data && data.token) {
+              localStorage.setItem(TOKEN_KEY, data.token);
+            }
+            return refreshSession();
+          })
+          .then(function () {
+            setStatus("注册成功，已自动登录", "ok");
+          })
+          .catch(function (e) {
+            setStatus(String(e.message || e), "err");
+          });
+      });
+
+      btnLogout.addEventListener("click", function () {
+        var t = getToken();
+        function finish() {
+          localStorage.removeItem(TOKEN_KEY);
+          showLoggedOut();
+          setStatus("已退出", "ok");
+        }
+        if (!t) {
+          finish();
+          return;
+        }
+        fetch("/api/auth/logout", { method: "POST", headers: authHeadersJson() })
+          .then(finish, finish);
+      });
 
       var mode = "generic";
       var convByMode = { generic: "", logistics: "" };
@@ -156,6 +375,21 @@
         status.className = "status" + (cls ? " " + cls : "");
       }
 
+      function renderMarkdownFinal(md) {
+        out.className = "md-body";
+        if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
+          out.textContent = md || "";
+          return;
+        }
+        var html = marked.parse(md || "", { mangle: false, headerIds: false });
+        out.innerHTML = DOMPurify.sanitize(html);
+      }
+
+      function clearOutput() {
+        out.className = "";
+        out.textContent = "";
+      }
+
       function applyMode(m) {
         convByMode[mode] = convId.value.trim();
         mode = m;
@@ -166,7 +400,7 @@
           t.classList.toggle("active", on);
           t.setAttribute("aria-selected", on ? "true" : "false");
         });
-        out.textContent = "";
+        clearOutput();
         setStatus("", "");
       }
 
@@ -179,7 +413,7 @@
       newConv.addEventListener("click", function () {
         convId.value = "";
         convByMode[mode] = "";
-        out.textContent = "";
+        clearOutput();
         setStatus("已清空当前入口的会话", "ok");
       });
 
@@ -209,13 +443,17 @@
       }
 
       send.addEventListener("click", async function () {
+        if (!getToken()) {
+          setStatus("请先登录或注册", "err");
+          return;
+        }
         var text = (msg.value || "").trim();
         if (!text) {
           setStatus("请先输入消息", "err");
           return;
         }
         send.disabled = true;
-        out.textContent = "";
+        clearOutput();
         setStatus("请求中…");
 
         var url = streamUrl[mode];
@@ -227,9 +465,14 @@
         try {
           var res = await fetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: authHeadersJson(),
             body: JSON.stringify(body)
           });
+          if (res.status === 401) {
+            localStorage.removeItem(TOKEN_KEY);
+            showLoggedOut();
+            throw new Error("登录已失效，请重新登录");
+          }
           if (!res.ok) {
             var errText = await res.text();
             throw new Error("HTTP " + res.status + ": " + errText);
@@ -280,8 +523,11 @@
             });
           }
 
+          renderMarkdownFinal(outText);
           setStatus("完成", "ok");
         } catch (e) {
+          clearOutput();
+          out.textContent = String(e.message || e);
           setStatus(String(e.message || e), "err");
         } finally {
           send.disabled = false;
@@ -289,6 +535,7 @@
       });
 
       applyMode("generic");
+      refreshSession();
     })();
   </script>
 </body>

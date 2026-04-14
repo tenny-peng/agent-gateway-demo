@@ -7,10 +7,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.dto.AgentChatResponse;
 import org.tenny.dto.ChatRequest;
 import org.tenny.logistics.service.LogisticsAgentService;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.util.concurrent.CompletableFuture;
 
@@ -29,16 +31,19 @@ public class LogisticsAgentController {
     }
 
     @PostMapping("/chat")
-    public AgentChatResponse chat(@Valid @RequestBody ChatRequest request) {
-        return logisticsAgentService.run(request.getMessage(), request.getConversationId());
+    public AgentChatResponse chat(@Valid @RequestBody ChatRequest request, HttpServletRequest httpRequest) {
+        AuthPrincipal principal = (AuthPrincipal) httpRequest.getAttribute(AuthPrincipal.REQUEST_ATTR);
+        return logisticsAgentService.run(request.getMessage(), request.getConversationId(), principal.getUserId());
     }
 
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter chatStream(@Valid @RequestBody ChatRequest request) {
+    public SseEmitter chatStream(@Valid @RequestBody ChatRequest request, HttpServletRequest httpRequest) {
         SseEmitter emitter = new SseEmitter(0L);
+        AuthPrincipal principal = (AuthPrincipal) httpRequest.getAttribute(AuthPrincipal.REQUEST_ATTR);
         CompletableFuture.runAsync(() -> {
             try {
-                logisticsAgentService.runStream(request.getMessage(), request.getConversationId(), emitter);
+                logisticsAgentService.runStream(request.getMessage(), request.getConversationId(),
+                        principal.getUserId(), emitter);
             } catch (Exception e) {
                 emitter.completeWithError(e);
             }

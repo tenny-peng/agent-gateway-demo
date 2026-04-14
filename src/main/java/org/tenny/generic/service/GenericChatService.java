@@ -1,6 +1,8 @@
 package org.tenny.generic.service;
 
 import org.springframework.stereotype.Service;
+import org.tenny.auth.model.SessionType;
+import org.tenny.auth.service.ConversationTrackingService;
 import org.tenny.client.LlmClient;
 import org.tenny.client.LlmStreamClient;
 import org.tenny.common.session.ConversationStore;
@@ -27,27 +29,31 @@ public class GenericChatService {
     private final LlmProperties llmProperties;
     private final ConversationStore conversationStore;
     private final RagService ragService;
+    private final ConversationTrackingService conversationTrackingService;
 
     public GenericChatService(LlmClient llmClient,
                               LlmStreamClient llmStreamClient,
                               LlmProperties llmProperties,
                               ConversationStore conversationStore,
-                              RagService ragService) {
+                              RagService ragService,
+                              ConversationTrackingService conversationTrackingService) {
         this.llmClient = llmClient;
         this.llmStreamClient = llmStreamClient;
         this.llmProperties = llmProperties;
         this.conversationStore = conversationStore;
         this.ragService = ragService;
+        this.conversationTrackingService = conversationTrackingService;
     }
 
     /**
      * Plain chat (no tools). Pass {@code conversationId} from the previous {@link ChatResponse} to continue.
      */
-    public ChatResponse chat(String userMessage, String conversationId) {
+    public ChatResponse chat(String userMessage, String conversationId, long userId) {
         String id;
         List<Map<String, String>> messages = new ArrayList<Map<String, String>>();
         if (conversationId == null || conversationId.trim().isEmpty()) {
             id = conversationStore.newConversationId();
+            conversationTrackingService.recordIfNew(userId, id, SessionType.GENERIC);
             messages.add(chatSystem());
             messages.add(userMessage(userMessage));
         } else {
@@ -77,11 +83,12 @@ public class GenericChatService {
     /**
      * Build message list for streaming; first SSE event should expose {@link StreamChatContext#getConversationId()}.
      */
-    public StreamChatContext prepareStreamContext(String userMessage, String conversationId) {
+    public StreamChatContext prepareStreamContext(String userMessage, String conversationId, long userId) {
         String id;
         List<Map<String, String>> messages = new ArrayList<Map<String, String>>();
         if (conversationId == null || conversationId.trim().isEmpty()) {
             id = conversationStore.newConversationId();
+            conversationTrackingService.recordIfNew(userId, id, SessionType.GENERIC);
             messages.add(chatSystem());
             messages.add(userMessage(userMessage));
         } else {

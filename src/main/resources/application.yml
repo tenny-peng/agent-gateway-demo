@@ -1,6 +1,32 @@
 server:
   port: 8080
 
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/agent_gateway_demo?useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  redis:
+    host: ${REDIS_HOST:127.0.0.1}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: ${REDIS_DB:0}
+    timeout: 3s
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+app:
+  security:
+    # Opaque UUID token TTL in Redis (hours)
+    session-expire-hours: 168
+  bootstrap-admin:
+    # If both set, creates or resets this admin on startup (BCrypt hash stored).
+    username: ${ADMIN_BOOTSTRAP_USERNAME:}
+    password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+
 llm:
   base-url: https://api.hunyuan.cloud.tencent.com/v1
   api-key: ${HUNYUAN_API_KEY:}

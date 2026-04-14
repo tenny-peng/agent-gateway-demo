@@ -6,12 +6,15 @@
     powershell -ExecutionPolicy Bypass -File scripts/eval-run.ps1
   Optional base URL:
     powershell -File scripts/eval-run.ps1 -BaseUrl http://127.0.0.1:8080
+  If APIs require login (copy opaque token from /api/auth/login response field token):
+    powershell -File scripts/eval-run.ps1 -ApiToken <uuid-or-token-string>
   NOTE: User-visible strings are ASCII-only so Windows PowerShell 5.1 parses this file
   correctly even when saved as UTF-8 without BOM.
 #>
 param(
     [string] $BaseUrl = "",
-    [string] $CasesFile = ""
+    [string] $CasesFile = "",
+    [string] $ApiToken = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -75,6 +78,14 @@ function Test-ExpectOne {
 $failed = 0
 $passed = 0
 
+function Get-EvalHeaders {
+    $h = @{ }
+    if ($ApiToken -and $ApiToken.Trim().Length -gt 0) {
+        $h["Authorization"] = "Bearer $($ApiToken.Trim())"
+    }
+    return $h
+}
+
 foreach ($c in $cfg.cases) {
     $id = $c.id
     if (-not $id) { continue }
@@ -89,7 +100,7 @@ foreach ($c in $cfg.cases) {
             $body = @{ message = $t.message; conversationId = $conv } | ConvertTo-Json -Compress
             $uri = "$appBase$($c.path)"
             try {
-                $resp = Invoke-WebRequest -Uri $uri -Method POST -Body $body -ContentType "application/json; charset=utf-8" -UseBasicParsing
+                $resp = Invoke-WebRequest -Uri $uri -Method POST -Body $body -ContentType "application/json; charset=utf-8" -Headers (Get-EvalHeaders) -UseBasicParsing
             } catch {
                 Write-Host "  FAIL turn $turnIdx : $_" -ForegroundColor Red
                 $seqOk = $false
@@ -127,7 +138,7 @@ foreach ($c in $cfg.cases) {
     $body = $bodyObj | ConvertTo-Json -Compress
     $uri = "$appBase$($c.path)"
     try {
-        $resp = Invoke-WebRequest -Uri $uri -Method POST -Body $body -ContentType "application/json; charset=utf-8" -UseBasicParsing
+        $resp = Invoke-WebRequest -Uri $uri -Method POST -Body $body -ContentType "application/json; charset=utf-8" -Headers (Get-EvalHeaders) -UseBasicParsing
     } catch {
         Write-Host "  FAIL HTTP: $_" -ForegroundColor Red
         $failed++

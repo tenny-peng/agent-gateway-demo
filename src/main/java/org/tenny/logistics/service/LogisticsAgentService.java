@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.tenny.auth.model.SessionType;
+import org.tenny.auth.service.ConversationTrackingService;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.tenny.client.LlmClient;
 import org.tenny.client.LlmCompletionResult;
@@ -43,6 +45,7 @@ public class LogisticsAgentService {
     private final WaybillQueryTool waybillQueryTool;
     private final ConversationStore conversationStore;
     private final RagService ragService;
+    private final ConversationTrackingService conversationTrackingService;
 
     public LogisticsAgentService(LlmClient llmClient,
                                  LlmStreamClient llmStreamClient,
@@ -50,7 +53,8 @@ public class LogisticsAgentService {
                                  AgentProperties agentProperties,
                                  WaybillQueryTool waybillQueryTool,
                                  ConversationStore conversationStore,
-                                 RagService ragService) {
+                                 RagService ragService,
+                                 ConversationTrackingService conversationTrackingService) {
         this.llmClient = llmClient;
         this.llmStreamClient = llmStreamClient;
         this.llmProperties = llmProperties;
@@ -58,12 +62,13 @@ public class LogisticsAgentService {
         this.waybillQueryTool = waybillQueryTool;
         this.conversationStore = conversationStore;
         this.ragService = ragService;
+        this.conversationTrackingService = conversationTrackingService;
     }
 
-    public AgentChatResponse run(String userMessage, String conversationId) {
+    public AgentChatResponse run(String userMessage, String conversationId, long userId) {
         long start = System.currentTimeMillis();
 
-        AgentSession session = prepareAgentSession(userMessage, conversationId);
+        AgentSession session = prepareAgentSession(userMessage, conversationId, userId);
         String convId = session.getConvId();
         List<Map<String, Object>> messages = session.getMessages();
 
@@ -110,12 +115,12 @@ public class LogisticsAgentService {
         throw new IllegalStateException("Agent exceeded max steps (" + max + ") without final answer");
     }
 
-    public void runStream(String userMessage, String conversationId, SseEmitter emitter) throws IOException {
+    public void runStream(String userMessage, String conversationId, long userId, SseEmitter emitter) throws IOException {
         long start = System.currentTimeMillis();
         MediaType textUtf8 = MediaType.parseMediaType("text/plain;charset=UTF-8");
         MediaType jsonUtf8 = MediaType.parseMediaType("application/json;charset=UTF-8");
 
-        AgentSession session = prepareAgentSession(userMessage, conversationId);
+        AgentSession session = prepareAgentSession(userMessage, conversationId, userId);
         String convId = session.getConvId();
         List<Map<String, Object>> messages = session.getMessages();
 
@@ -168,12 +173,13 @@ public class LogisticsAgentService {
         throw new IllegalStateException("Agent exceeded max steps (" + max + ") without final answer");
     }
 
-    private AgentSession prepareAgentSession(String userMessage, String conversationId) {
+    private AgentSession prepareAgentSession(String userMessage, String conversationId, long userId) {
         String convId;
         List<Map<String, Object>> messages = new ArrayList<Map<String, Object>>();
 
         if (conversationId == null || conversationId.trim().isEmpty()) {
             convId = conversationStore.newConversationId();
+            conversationTrackingService.recordIfNew(userId, convId, SessionType.LOGISTICS);
             Map<String, Object> system = new HashMap<String, Object>();
             system.put("role", "system");
             system.put("content", AGENT_SYSTEM_BASE);
