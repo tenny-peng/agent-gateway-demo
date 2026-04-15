@@ -76,7 +76,7 @@
     <button type="button" id="btnRegister">注册</button>
     <div class="status" id="status"></div>
     <p class="footer">
-      已有账号？<a href="/login.html">去登录</a> · <a href="/">返回聊天页</a>
+      已有账号？<a href="/login.html">去登录</a>
     </p>
   </section>
 
@@ -103,6 +103,28 @@
 
       function gotoAfterRegister() {
         window.location.href = getRedirect();
+      }
+
+      function getToken() {
+        return localStorage.getItem(TOKEN_KEY) || "";
+      }
+
+      function initSessionGuard() {
+        var t = getToken();
+        if (!t) {
+          return;
+        }
+        fetch("/api/auth/me", { headers: { "Authorization": "Bearer " + t } })
+          .then(function (res) {
+            if (!res.ok) {
+              localStorage.removeItem(TOKEN_KEY);
+              return;
+            }
+            gotoAfterRegister();
+          })
+          .catch(function () {
+            localStorage.removeItem(TOKEN_KEY);
+          });
       }
 
       btnRegister.addEventListener("click", function () {
@@ -145,6 +167,8 @@
             btnRegister.disabled = false;
           });
       });
+
+      initSessionGuard();
     })();
   </script>
 </body>

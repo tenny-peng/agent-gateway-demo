@@ -230,6 +230,10 @@
         return h;
       }
 
+      function gotoLogin() {
+        window.location.href = "/login.html?redirect=" + encodeURIComponent(window.location.pathname || "/");
+      }
+
       function showLoggedOut() {
         authLoggedOut.classList.remove("hidden");
         authLoggedIn.classList.add("hidden");
@@ -247,20 +251,25 @@
         var t = getToken();
         if (!t) {
           showLoggedOut();
-          return Promise.resolve();
+          gotoLogin();
+          return Promise.resolve(false);
         }
         return fetch("/api/auth/me", { headers: authHeadersJson() }).then(function (res) {
           if (!res.ok) {
             localStorage.removeItem(TOKEN_KEY);
             showLoggedOut();
-            return;
+            gotoLogin();
+            return false;
           }
           return res.json().then(function (me) {
             showLoggedIn(me.username, me.role);
+            return true;
           });
         }).catch(function () {
           localStorage.removeItem(TOKEN_KEY);
           showLoggedOut();
+          gotoLogin();
+          return false;
         });
       }
 
@@ -269,7 +278,7 @@
         function finish() {
           localStorage.removeItem(TOKEN_KEY);
           showLoggedOut();
-          setStatus("已退出", "ok");
+          gotoLogin();
         }
         if (!t) {
           finish();
@@ -363,7 +372,7 @@
 
       send.addEventListener("click", async function () {
         if (!getToken()) {
-          setStatus("请先登录或注册", "err");
+          gotoLogin();
           return;
         }
         var text = (msg.value || "").trim();
@@ -390,7 +399,8 @@
           if (res.status === 401) {
             localStorage.removeItem(TOKEN_KEY);
             showLoggedOut();
-            throw new Error("登录已失效，请重新登录");
+            gotoLogin();
+            return;
           }
           if (!res.ok) {
             var errText = await res.text();
