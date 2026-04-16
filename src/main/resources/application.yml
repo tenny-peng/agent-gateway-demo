@@ -22,6 +22,9 @@ app:
   security:
     # Opaque UUID token TTL in Redis (hours)
     session-expire-hours: 168
+  conversation:
+    # Cached LLM message lists in Redis (hours). 0 = no TTL on conversation keys.
+    redis-ttl-hours: 168
   bootstrap-admin:
     # If both set, creates or resets this admin on startup (BCrypt hash stored).
     username: ${ADMIN_BOOTSTRAP_USERNAME:}

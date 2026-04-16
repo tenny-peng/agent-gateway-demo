@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.tenny.config.AgentProperties;
 import org.tenny.config.AppSecurityProperties;
 import org.tenny.config.BootstrapAdminProperties;
+import org.tenny.config.ConversationRedisProperties;
 import org.tenny.config.LlmProperties;
 import org.tenny.config.RagProperties;
 
@@ -15,7 +16,8 @@ import org.tenny.config.RagProperties;
         AgentProperties.class,
         RagProperties.class,
         AppSecurityProperties.class,
-        BootstrapAdminProperties.class
+        BootstrapAdminProperties.class,
+        ConversationRedisProperties.class
 })
 public class AgentGatewayApplication {
 

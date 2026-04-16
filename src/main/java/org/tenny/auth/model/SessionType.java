@@ -1,7 +1,7 @@
 package org.tenny.auth.model;
 
 /**
- * Mirrors conversation kind in {@link org.tenny.common.session.ConversationStore}.
+ * Mirrors conversation kind in Redis-backed {@link org.tenny.common.session.ConversationStore}.
  */
 public enum SessionType {
     GENERIC,
