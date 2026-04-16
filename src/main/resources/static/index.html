@@ -7,246 +7,400 @@
   <style>
     :root {
       --bg: #0f1419;
-      --panel: #1a2332;
+      --panel: #18212f;
+      --panel-2: #111923;
       --border: #2d3a4d;
       --text: #e6edf3;
       --muted: #8b9cb3;
       --accent: #58a6ff;
       --ok: #3fb950;
+      --err: #f85149;
+      --user: #1f6feb;
+      --assistant: #27364b;
     }
     * { box-sizing: border-box; }
     body {
+      margin: 0;
       font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
       background: var(--bg);
       color: var(--text);
-      margin: 0;
       min-height: 100vh;
-      padding: 1.25rem;
-      max-width: 52rem;
-      margin-left: auto;
-      margin-right: auto;
+      padding: 1rem;
     }
-    h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.75rem; }
     .hidden { display: none !important; }
+    .page { max-width: 1200px; margin: 0 auto; display: grid; gap: 0.75rem; }
     .auth-panel {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      align-items: center;
-      margin-bottom: 1rem;
-      padding: 0.75rem;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 0.88rem;
+      display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+      padding: 0.7rem 0.85rem; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; font-size: 0.88rem;
     }
-    .auth-panel a { color: var(--accent); text-decoration: none; }
-    .auth-panel a:hover { text-decoration: underline; }
-    #authInfo { color: var(--muted); margin-right: 0.35rem; }
-    .auth-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
+    .auth-actions { display: flex; align-items: center; gap: 0.5rem; }
+    #authInfo { color: var(--muted); }
+    a, button {
+      border: 1px solid var(--border); border-radius: 6px; padding: 0.38rem 0.68rem;
+      background: #212c3d; color: var(--text); text-decoration: none; cursor: pointer;
     }
-    .auth-actions a {
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.38rem 0.72rem;
-      background: #212c3d;
-      color: var(--text);
-      text-decoration: none;
-      font-size: 0.88rem;
-    }
-    .auth-actions a.primary {
-      background: #1f6feb;
-      border-color: #388bfd;
-      color: #fff;
-    }
-    .auth-actions a:hover { filter: brightness(1.08); text-decoration: none; }
-    .tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
-    .tab {
-      cursor: pointer;
-      padding: 0.45rem 0.85rem;
-      border-radius: 6px 6px 0 0;
-      border: 1px solid transparent;
-      font-size: 0.88rem;
-      color: var(--muted);
-      background: transparent;
-    }
-    .tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
-    .tab.active {
-      color: var(--text);
-      border-color: var(--border);
-      border-bottom-color: var(--panel);
-      margin-bottom: -1px;
-      background: var(--panel);
-    }
-    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
-    label { font-size: 0.85rem; color: var(--muted); }
-    select, textarea, button, input[type="text"], input[type="password"] {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 6px;
-      padding: 0.45rem 0.6rem;
-      font-size: 0.9rem;
-    }
-    textarea {
-      width: 100%;
-      min-height: 5rem;
-      resize: vertical;
-      font-family: inherit;
-    }
-    button {
-      cursor: pointer;
-      background: #212c3d;
-    }
-    button.primary {
-      background: #1f6feb;
-      border-color: #388bfd;
-      color: #fff;
-    }
-    button.primary:hover { filter: brightness(1.08); }
+    a.primary, button.primary { background: #1f6feb; border-color: #388bfd; color: #fff; }
+    a:hover, button:hover { filter: brightness(1.08); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    #out {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
-      min-height: 8rem;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 0.9rem;
-      line-height: 1.55;
+    .main { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 0.75rem; min-height: calc(100vh - 120px); }
+    .side, .chat {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column;
     }
-    #out.md-body {
-      white-space: normal;
+    .side-head, .chat-head { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); background: var(--panel-2); }
+    .tabs { display: flex; gap: 0.4rem; margin-bottom: 0.55rem; }
+    .tab { border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.6rem; color: var(--muted); background: transparent; }
+    .tab.active { color: var(--text); background: #243146; }
+    #convList { overflow: auto; padding: 0.4rem; display: grid; gap: 0.3rem; }
+    .conv-item {
+      border: 1px solid var(--border); background: #1d2838; border-radius: 8px; padding: 0.5rem 0.55rem;
+      cursor: pointer; text-align: left; color: var(--text);
     }
-    #out.md-body p { margin: 0.5em 0; }
-    #out.md-body p:first-child { margin-top: 0; }
-    #out.md-body strong { font-weight: 600; }
-    #out.md-body ul, #out.md-body ol { margin: 0.5em 0; padding-left: 1.35rem; }
-    #out.md-body li { margin: 0.2em 0; }
-    #out.md-body code {
-      font-family: ui-monospace, Consolas, monospace;
-      font-size: 0.88em;
-      background: rgba(0, 0, 0, 0.28);
-      padding: 0.12em 0.4em;
-      border-radius: 4px;
+    .conv-item.active { border-color: #4f6b8d; background: #24354d; }
+    .conv-title { font-size: 0.88rem; line-height: 1.35; margin-bottom: 0.2rem; }
+    .conv-meta { font-size: 0.75rem; color: var(--muted); }
+    .conv-empty { color: var(--muted); font-size: 0.85rem; padding: 0.5rem; }
+    #messages { flex: 1; overflow: auto; padding: 0.85rem; display: grid; gap: 0.6rem; align-content: start; }
+    .msg {
+      max-width: min(85%, 760px); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.72rem;
+      line-height: 1.55; word-break: break-word; white-space: pre-wrap;
     }
-    #out.md-body pre {
-      background: #0d1117;
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
-      overflow-x: auto;
-      margin: 0.6em 0;
+    .msg.user { justify-self: end; background: var(--user); border-color: #388bfd; color: #fff; }
+    .msg.assistant { justify-self: start; background: var(--assistant); }
+    .msg.tool { justify-self: start; background: #1f2a39; color: var(--muted); font-size: 0.85rem; }
+    .msg.md-body { white-space: normal; }
+    .msg.md-body p { margin: 0.45em 0; }
+    .msg.md-body p:first-child { margin-top: 0; }
+    .msg.md-body p:last-child { margin-bottom: 0; }
+    .msg.md-body pre { background: #0d1117; border-radius: 8px; padding: 0.65rem 0.85rem; overflow: auto; }
+    .msg.md-body code {
+      font-family: ui-monospace, Consolas, monospace; font-size: 0.88em; background: rgba(0, 0, 0, 0.25); padding: 0.08em 0.3em; border-radius: 4px;
     }
-    #out.md-body pre code { background: none; padding: 0; }
-    #out.md-body h1, #out.md-body h2, #out.md-body h3 {
-      font-size: 1.02em;
-      font-weight: 600;
-      margin: 0.85em 0 0.4em;
+    .chat-input { border-top: 1px solid var(--border); padding: 0.65rem 0.75rem; display: grid; gap: 0.55rem; }
+    textarea {
+      width: 100%; min-height: 5rem; max-height: 13rem; resize: vertical; border: 1px solid var(--border);
+      border-radius: 8px; background: #121b27; color: var(--text); padding: 0.6rem; font-family: inherit;
     }
-    #out.md-body hr { border: none; border-top: 1px solid var(--border); margin: 0.85rem 0; }
-    #out.md-body blockquote {
-      margin: 0.5em 0;
-      padding-left: 0.85rem;
-      border-left: 3px solid var(--border);
-      color: var(--muted);
-    }
-    #out:empty::before {
-      content: "回复会出现在这里…";
-      color: var(--muted);
-    }
-    .status { font-size: 0.8rem; color: var(--muted); min-height: 1.25rem; }
+    .actions { display: flex; justify-content: space-between; gap: 0.6rem; align-items: center; }
+    .status { min-height: 1.2rem; color: var(--muted); font-size: 0.82rem; }
     .status.ok { color: var(--ok); }
-    .status.err { color: #f85149; }
-    code { font-size: 0.82em; }
+    .status.err { color: var(--err); }
+    @media (max-width: 900px) {
+      .main { grid-template-columns: 1fr; }
+      .side { max-height: 320px; }
+    }
   </style>
 </head>
 <body>
-  <h1>agent-gateway-demo</h1>
-
-  <div class="auth-panel" id="authPanel">
-    <div class="auth-logged-out" id="authLoggedOut">
-      <div class="auth-actions">
-        <a href="/login.html" class="primary">去登录</a>
-        <a href="/register.html">去注册</a>
+  <div class="page">
+    <div class="auth-panel">
+      <div class="auth-logged-out" id="authLoggedOut">
+        <div class="auth-actions">
+          <a href="/login.html" class="primary">去登录</a>
+          <a href="/register.html">去注册</a>
+        </div>
+      </div>
+      <div class="auth-logged-in hidden" id="authLoggedIn">
+        <div class="auth-actions">
+          <span id="authInfo"></span>
+          <a href="/admin.html" id="linkAdmin" class="hidden">管理后台</a>
+          <button type="button" id="btnLogout">退出</button>
+        </div>
       </div>
     </div>
-    <div class="auth-logged-in hidden" id="authLoggedIn">
-      <span id="authInfo"></span>
-      <a href="/admin.html" id="linkAdmin" class="hidden">管理后台</a>
-      <button type="button" id="btnLogout">退出</button>
+
+    <div class="main">
+      <aside class="side">
+        <div class="side-head">
+          <div class="tabs" role="tablist">
+            <button type="button" class="tab active" data-mode="generic">通用问答</button>
+            <button type="button" class="tab" data-mode="logistics">物流客服</button>
+          </div>
+          <button type="button" class="primary" id="newConv">+ 新会话</button>
+        </div>
+        <div id="convList"></div>
+      </aside>
+
+      <section class="chat">
+        <div class="chat-head"><strong id="chatTitle">新会话</strong></div>
+        <div id="messages" aria-live="polite"></div>
+        <div class="chat-input">
+          <textarea id="msg" placeholder="输入消息..."></textarea>
+          <div class="actions">
+            <div class="status" id="status"></div>
+            <button type="button" class="primary" id="send">发送</button>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
-
-  <div class="tabs" role="tablist">
-    <button type="button" class="tab active" data-mode="generic" role="tab" aria-selected="true">通用问答</button>
-    <button type="button" class="tab" data-mode="logistics" role="tab" aria-selected="false">物流客服（业务 Agent）</button>
-  </div>
-
-  <div class="row">
-    <textarea id="msg" placeholder="输入消息…"></textarea>
-  </div>
-
-  <div class="row">
-    <button type="button" class="primary" id="send">发送</button>
-    <button type="button" id="newConv">新会话</button>
-  </div>
-
-  <div class="status" id="status"></div>
-  <div id="out" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
   <script>
     (function () {
       var TOKEN_KEY = "agentGatewayJwt";
+      var mode = "generic";
+      var streamUrl = { generic: "/api/generic/chat/stream", logistics: "/api/logistics/agent/chat/stream" };
+      var placeholders = {
+        generic: "例如：用三句话解释什么是 RAG",
+        logistics: "例如：查一下运单 SF001 的状态 / 延误怎么跟客户说"
+      };
+      var sessionTypeMap = { generic: "GENERIC", logistics: "LOGISTICS" };
+      var convByMode = { generic: "", logistics: "" };
+      var convListByMode = { generic: [], logistics: [] };
+      var messagesByMode = { generic: [], logistics: [] };
 
       var msg = document.getElementById("msg");
       var send = document.getElementById("send");
-      var newConv = document.getElementById("newConv");
-      var out = document.getElementById("out");
       var status = document.getElementById("status");
       var tabs = document.querySelectorAll(".tab");
-
+      var newConv = document.getElementById("newConv");
+      var convList = document.getElementById("convList");
+      var messagesDom = document.getElementById("messages");
+      var chatTitle = document.getElementById("chatTitle");
       var btnLogout = document.getElementById("btnLogout");
       var authLoggedOut = document.getElementById("authLoggedOut");
       var authLoggedIn = document.getElementById("authLoggedIn");
       var authInfo = document.getElementById("authInfo");
       var linkAdmin = document.getElementById("linkAdmin");
 
-      function getToken() {
-        return localStorage.getItem(TOKEN_KEY) || "";
-      }
-
+      function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
       function authHeadersJson() {
         var h = { "Content-Type": "application/json" };
         var t = getToken();
-        if (t) {
-          h["Authorization"] = "Bearer " + t;
-        }
+        if (t) h.Authorization = "Bearer " + t;
         return h;
       }
-
+      function authHeaders() {
+        var h = {};
+        var t = getToken();
+        if (t) h.Authorization = "Bearer " + t;
+        return h;
+      }
       function gotoLogin() {
         window.location.href = "/login.html?redirect=" + encodeURIComponent(window.location.pathname || "/");
       }
-
+      function setStatus(text, cls) {
+        status.textContent = text || "";
+        status.className = "status" + (cls ? " " + cls : "");
+      }
       function showLoggedOut() {
         authLoggedOut.classList.remove("hidden");
         authLoggedIn.classList.add("hidden");
         linkAdmin.classList.add("hidden");
       }
-
       function showLoggedIn(username, role) {
         authLoggedOut.classList.add("hidden");
         authLoggedIn.classList.remove("hidden");
         authInfo.textContent = username + " · " + role;
         linkAdmin.classList.toggle("hidden", role !== "ADMIN");
       }
+      function markdownToSafeHtml(text) {
+        if (typeof marked === "undefined" || typeof DOMPurify === "undefined") return null;
+        var html = marked.parse(text || "", { mangle: false, headerIds: false });
+        return DOMPurify.sanitize(html);
+      }
+      function renderMessages() {
+        var rows = messagesByMode[mode] || [];
+        messagesDom.innerHTML = "";
+        if (!rows.length) {
+          var empty = document.createElement("div");
+          empty.className = "conv-empty";
+          empty.textContent = "开始一段新对话吧。";
+          messagesDom.appendChild(empty);
+          return;
+        }
+        rows.forEach(function (m) {
+          var d = document.createElement("div");
+          var role = m.role || "assistant";
+          d.className = "msg " + role;
+          if (role === "assistant") {
+            var html = markdownToSafeHtml(m.content || "");
+            if (html == null) {
+              d.textContent = m.content || "";
+            } else {
+              d.classList.add("md-body");
+              d.innerHTML = html;
+            }
+          } else {
+            d.textContent = m.content || "";
+          }
+          messagesDom.appendChild(d);
+        });
+        messagesDom.scrollTop = messagesDom.scrollHeight;
+      }
+      function renderConversationList() {
+        var list = convListByMode[mode] || [];
+        var activeId = convByMode[mode] || "";
+        convList.innerHTML = "";
+        if (!list.length) {
+          var empty = document.createElement("div");
+          empty.className = "conv-empty";
+          empty.textContent = "暂无历史会话";
+          convList.appendChild(empty);
+          return;
+        }
+        list.forEach(function (c) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "conv-item" + (c.conversationId === activeId ? " active" : "");
+          btn.addEventListener("click", function () {
+            convByMode[mode] = c.conversationId;
+            chatTitle.textContent = c.title || "新会话";
+            loadMessages(c.conversationId);
+            renderConversationList();
+          });
+          var title = document.createElement("div");
+          title.className = "conv-title";
+          title.textContent = c.title || "新会话";
+          var meta = document.createElement("div");
+          meta.className = "conv-meta";
+          meta.textContent = (c.lastMessageAt || c.firstSeenAt || "") + " · " + (c.messageCount || 0) + " 条";
+          btn.appendChild(title);
+          btn.appendChild(meta);
+          convList.appendChild(btn);
+        });
+      }
+      async function loadConversations() {
+        var type = sessionTypeMap[mode];
+        var res = await fetch("/api/chat/conversations?sessionType=" + encodeURIComponent(type) + "&page=1&pageSize=50", {
+          headers: authHeaders()
+        });
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          gotoLogin();
+          return;
+        }
+        if (!res.ok) throw new Error("加载会话失败: HTTP " + res.status);
+        var data = await res.json();
+        convListByMode[mode] = data.items || [];
+        if (!convByMode[mode] && convListByMode[mode].length) {
+          convByMode[mode] = convListByMode[mode][0].conversationId;
+          chatTitle.textContent = convListByMode[mode][0].title || "新会话";
+          await loadMessages(convByMode[mode]);
+        }
+        renderConversationList();
+      }
+      async function loadMessages(conversationId) {
+        if (!conversationId) {
+          messagesByMode[mode] = [];
+          renderMessages();
+          return;
+        }
+        var type = sessionTypeMap[mode];
+        var url = "/api/chat/conversations/" + encodeURIComponent(conversationId)
+          + "/messages?sessionType=" + encodeURIComponent(type) + "&limit=500";
+        var res = await fetch(url, { headers: authHeaders() });
+        if (!res.ok) throw new Error("加载消息失败: HTTP " + res.status);
+        var data = await res.json();
+        messagesByMode[mode] = (data.items || []).map(function (x) {
+          return { role: x.role, content: x.content || "", seqNo: x.seqNo || 0 };
+        });
+        renderMessages();
+      }
+      function parseSseEvents(buffer, onEventData) {
+        var dataLines = [];
+        var lineEnd;
+        while ((lineEnd = buffer.indexOf("\n")) !== -1) {
+          var raw = buffer.slice(0, lineEnd);
+          buffer = buffer.slice(lineEnd + 1);
+          var line = raw.replace(/\r$/, "");
+          if (line === "") {
+            if (dataLines.length) {
+              onEventData(dataLines.join("\n"));
+              dataLines = [];
+            }
+            continue;
+          }
+          if (line.indexOf("data:") === 0) {
+            var payload = line.slice(5);
+            if (payload.indexOf(" ") === 0) payload = payload.slice(1);
+            dataLines.push(payload);
+          }
+        }
+        return buffer;
+      }
+      async function doSend() {
+        var text = (msg.value || "").trim();
+        if (!text) {
+          setStatus("请先输入消息", "err");
+          return;
+        }
+        send.disabled = true;
+        setStatus("请求中...", "");
+        msg.value = "";
 
+        var localRows = messagesByMode[mode] || [];
+        localRows.push({ role: "user", content: text });
+        localRows.push({ role: "assistant", content: "" });
+        messagesByMode[mode] = localRows;
+        renderMessages();
+        var answerIndex = localRows.length - 1;
+
+        try {
+          var res = await fetch(streamUrl[mode], {
+            method: "POST",
+            headers: authHeadersJson(),
+            body: JSON.stringify({ message: text, conversationId: convByMode[mode] || undefined })
+          });
+          if (!res.ok) {
+            var errText = await res.text();
+            throw new Error("HTTP " + res.status + ": " + errText);
+          }
+          if (!res.body || !res.body.getReader) throw new Error("浏览器不支持流式读取");
+          var reader = res.body.getReader();
+          var dec = new TextDecoder();
+          var buf = "";
+          while (true) {
+            var part = await reader.read();
+            if (part.done) break;
+            buf += dec.decode(part.value, { stream: true });
+            buf = parseSseEvents(buf, function (payload) {
+              try {
+                var obj = JSON.parse(payload);
+                if (obj && obj.conversationId) {
+                  convByMode[mode] = obj.conversationId;
+                  return;
+                }
+              } catch (e) {
+              }
+              localRows[answerIndex].content += payload;
+              renderMessages();
+            });
+          }
+          if (buf.length) {
+            parseSseEvents(buf + "\n\n", function (payload) {
+              localRows[answerIndex].content += payload;
+            });
+          }
+          renderMessages();
+          setStatus("完成", "ok");
+          await loadConversations();
+          renderConversationList();
+        } catch (e) {
+          localRows[answerIndex].content = String(e.message || e);
+          renderMessages();
+          setStatus(String(e.message || e), "err");
+        } finally {
+          send.disabled = false;
+        }
+      }
+      function applyMode(nextMode) {
+        mode = nextMode;
+        msg.placeholder = placeholders[mode];
+        tabs.forEach(function (t) {
+          t.classList.toggle("active", t.getAttribute("data-mode") === mode);
+        });
+        var active = convListByMode[mode].find(function (x) {
+          return x.conversationId === convByMode[mode];
+        });
+        chatTitle.textContent = active ? (active.title || "新会话") : "新会话";
+        renderConversationList();
+        renderMessages();
+        loadConversations().catch(function (e) {
+          setStatus(String(e.message || e), "err");
+        });
+      }
       function refreshSession() {
         var t = getToken();
         if (!t) {
@@ -254,7 +408,7 @@
           gotoLogin();
           return Promise.resolve(false);
         }
-        return fetch("/api/auth/me", { headers: authHeadersJson() }).then(function (res) {
+        return fetch("/api/auth/me", { headers: authHeaders() }).then(function (res) {
           if (!res.ok) {
             localStorage.removeItem(TOKEN_KEY);
             showLoggedOut();
@@ -273,6 +427,26 @@
         });
       }
 
+      tabs.forEach(function (t) {
+        t.addEventListener("click", function () {
+          applyMode(t.getAttribute("data-mode"));
+        });
+      });
+      newConv.addEventListener("click", function () {
+        convByMode[mode] = "";
+        messagesByMode[mode] = [];
+        chatTitle.textContent = "新会话";
+        renderConversationList();
+        renderMessages();
+        setStatus("已切换到新会话", "ok");
+      });
+      send.addEventListener("click", doSend);
+      msg.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          doSend();
+        }
+      });
       btnLogout.addEventListener("click", function () {
         var t = getToken();
         function finish() {
@@ -284,185 +458,13 @@
           finish();
           return;
         }
-        fetch("/api/auth/logout", { method: "POST", headers: authHeadersJson() })
-          .then(finish, finish);
+        fetch("/api/auth/logout", { method: "POST", headers: authHeadersJson() }).then(finish, finish);
       });
 
-      var mode = "generic";
-      var convByMode = { generic: "", logistics: "" };
-
-      var streamUrl = {
-        generic: "/api/generic/chat/stream",
-        logistics: "/api/logistics/agent/chat/stream"
-      };
-
-      var placeholders = {
-        generic: "例如：用三句话解释什么是 RAG",
-        logistics: "例如：查一下运单 SF001 的状态 / 延误怎么跟客户说"
-      };
-
-      function setStatus(text, cls) {
-        status.textContent = text || "";
-        status.className = "status" + (cls ? " " + cls : "");
-      }
-
-      function renderMarkdownFinal(md) {
-        out.className = "md-body";
-        if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
-          out.textContent = md || "";
-          return;
-        }
-        var html = marked.parse(md || "", { mangle: false, headerIds: false });
-        out.innerHTML = DOMPurify.sanitize(html);
-      }
-
-      function clearOutput() {
-        out.className = "";
-        out.textContent = "";
-      }
-
-      function applyMode(m) {
-        mode = m;
-        msg.placeholder = placeholders[m];
-        tabs.forEach(function (t) {
-          var on = t.getAttribute("data-mode") === m;
-          t.classList.toggle("active", on);
-          t.setAttribute("aria-selected", on ? "true" : "false");
-        });
-        clearOutput();
-        setStatus("", "");
-      }
-
-      tabs.forEach(function (t) {
-        t.addEventListener("click", function () {
-          applyMode(t.getAttribute("data-mode"));
-        });
+      msg.placeholder = placeholders[mode];
+      refreshSession().then(function (ok) {
+        if (ok) applyMode("generic");
       });
-
-      newConv.addEventListener("click", function () {
-        convByMode[mode] = "";
-        clearOutput();
-        setStatus("已清空当前入口的会话", "ok");
-      });
-
-      function parseSseEvents(buffer, onEventData) {
-        var dataLines = [];
-        var lineEnd;
-        while ((lineEnd = buffer.indexOf("\n")) !== -1) {
-          var raw = buffer.slice(0, lineEnd);
-          buffer = buffer.slice(lineEnd + 1);
-          var line = raw.replace(/\r$/, "");
-          if (line === "") {
-            if (dataLines.length) {
-              onEventData(dataLines.join("\n"));
-              dataLines = [];
-            }
-            continue;
-          }
-          if (line.indexOf("data:") === 0) {
-            var payload = line.slice(5);
-            if (payload.indexOf(" ") === 0) {
-              payload = payload.slice(1);
-            }
-            dataLines.push(payload);
-          }
-        }
-        return buffer;
-      }
-
-      send.addEventListener("click", async function () {
-        if (!getToken()) {
-          gotoLogin();
-          return;
-        }
-        var text = (msg.value || "").trim();
-        if (!text) {
-          setStatus("请先输入消息", "err");
-          return;
-        }
-        send.disabled = true;
-        clearOutput();
-        setStatus("请求中…");
-
-        var url = streamUrl[mode];
-        var body = {
-          message: text,
-          conversationId: convByMode[mode] || undefined
-        };
-
-        try {
-          var res = await fetch(url, {
-            method: "POST",
-            headers: authHeadersJson(),
-            body: JSON.stringify(body)
-          });
-          if (res.status === 401) {
-            localStorage.removeItem(TOKEN_KEY);
-            showLoggedOut();
-            gotoLogin();
-            return;
-          }
-          if (!res.ok) {
-            var errText = await res.text();
-            throw new Error("HTTP " + res.status + ": " + errText);
-          }
-          if (!res.body || !res.body.getReader) {
-            throw new Error("浏览器不支持流式读取");
-          }
-
-          var reader = res.body.getReader();
-          var dec = new TextDecoder();
-          var buf = "";
-          var outText = "";
-
-          while (true) {
-            var part = await reader.read();
-            if (part.done) break;
-            buf += dec.decode(part.value, { stream: true });
-            buf = parseSseEvents(buf, function (payload) {
-              var j = null;
-              try {
-                j = JSON.parse(payload);
-              } catch (e) {
-                outText += payload;
-                out.textContent = outText;
-                return;
-              }
-              if (j && typeof j.conversationId === "string" && j.conversationId) {
-                convByMode[mode] = j.conversationId;
-                return;
-              }
-              outText += payload;
-              out.textContent = outText;
-            });
-          }
-          if (buf.length) {
-            buf = parseSseEvents(buf + "\n\n", function (payload) {
-              try {
-                var j = JSON.parse(payload);
-                if (j && typeof j.conversationId === "string" && j.conversationId) {
-                  convByMode[mode] = j.conversationId;
-                  return;
-                }
-              } catch (e) {}
-              outText += payload;
-              out.textContent = outText;
-            });
-          }
-
-          renderMarkdownFinal(outText);
-          setStatus("完成", "ok");
-        } catch (e) {
-          clearOutput();
-          out.textContent = String(e.message || e);
-          setStatus(String(e.message || e), "err");
-        } finally {
-          send.disabled = false;
-        }
-      });
-
-      applyMode("generic");
-      refreshSession();
     })();
   </script>
 </body>

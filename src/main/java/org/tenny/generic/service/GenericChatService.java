@@ -2,6 +2,9 @@ package org.tenny.generic.service;
 
 import org.springframework.stereotype.Service;
 import org.tenny.auth.model.SessionType;
+import org.tenny.auth.entity.UserConversationMessage;
+import org.tenny.auth.mapper.UserConversationMessageMapper;
+import org.tenny.auth.service.ConversationMessageService;
 import org.tenny.auth.service.ConversationTrackingService;
 import org.tenny.client.LlmClient;
 import org.tenny.client.LlmStreamClient;
@@ -30,19 +33,25 @@ public class GenericChatService {
     private final ConversationStore conversationStore;
     private final RagService ragService;
     private final ConversationTrackingService conversationTrackingService;
+    private final ConversationMessageService conversationMessageService;
+    private final UserConversationMessageMapper userConversationMessageMapper;
 
     public GenericChatService(LlmClient llmClient,
                               LlmStreamClient llmStreamClient,
                               LlmProperties llmProperties,
                               ConversationStore conversationStore,
                               RagService ragService,
-                              ConversationTrackingService conversationTrackingService) {
+                              ConversationTrackingService conversationTrackingService,
+                              ConversationMessageService conversationMessageService,
+                              UserConversationMessageMapper userConversationMessageMapper) {
         this.llmClient = llmClient;
         this.llmStreamClient = llmStreamClient;
         this.llmProperties = llmProperties;
         this.conversationStore = conversationStore;
         this.ragService = ragService;
         this.conversationTrackingService = conversationTrackingService;
+        this.conversationMessageService = conversationMessageService;
+        this.userConversationMessageMapper = userConversationMessageMapper;
     }
 
     /**
@@ -60,7 +69,7 @@ public class GenericChatService {
             id = conversationId.trim();
             List<Map<String, String>> previous = conversationStore.getChatMessages(id);
             if (previous == null) {
-                throw new IllegalStateException("unknown conversationId: " + id);
+                previous = restoreChatMessages(userId, id);
             }
             messages.addAll(previous);
             messages.add(userMessage(userMessage));
@@ -76,6 +85,8 @@ public class GenericChatService {
         toSave.add(assistantMessage(answer));
         ragService.stripRagFromChatMessages(toSave);
         conversationStore.putChatMessages(id, toSave);
+        conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "user", userMessage, null, userMessage);
+        conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "assistant", answer, null, userMessage);
 
         return new ChatResponse(answer, llmProperties.getModel(), latency, id);
     }
@@ -95,13 +106,13 @@ public class GenericChatService {
             id = conversationId.trim();
             List<Map<String, String>> previous = conversationStore.getChatMessages(id);
             if (previous == null) {
-                throw new IllegalStateException("unknown conversationId: " + id);
+                previous = restoreChatMessages(userId, id);
             }
             messages.addAll(previous);
             messages.add(userMessage(userMessage));
         }
         ragService.augmentChatSystem(messages, userMessage);
-        return new StreamChatContext(id, messages);
+        return new StreamChatContext(id, messages, userId, userMessage);
     }
 
     /**
@@ -117,15 +128,23 @@ public class GenericChatService {
         next.add(assistantMessage(acc.toString()));
         ragService.stripRagFromChatMessages(next);
         conversationStore.putChatMessages(ctx.getConversationId(), next);
+        conversationMessageService.appendMessage(
+                ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null, ctx.getUserMessage());
+        conversationMessageService.appendMessage(
+                ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "assistant", acc.toString(), null, ctx.getUserMessage());
     }
 
     public static final class StreamChatContext {
         private final String conversationId;
         private final List<Map<String, String>> messages;
+        private final long userId;
+        private final String userMessage;
 
-        public StreamChatContext(String conversationId, List<Map<String, String>> messages) {
+        public StreamChatContext(String conversationId, List<Map<String, String>> messages, long userId, String userMessage) {
             this.conversationId = conversationId;
             this.messages = messages;
+            this.userId = userId;
+            this.userMessage = userMessage;
         }
 
         public String getConversationId() {
@@ -134,6 +153,14 @@ public class GenericChatService {
 
         public List<Map<String, String>> getMessages() {
             return messages;
+        }
+
+        public long getUserId() {
+            return userId;
+        }
+
+        public String getUserMessage() {
+            return userMessage;
         }
     }
 
@@ -156,5 +183,24 @@ public class GenericChatService {
         m.put("role", "assistant");
         m.put("content", text);
         return m;
+    }
+
+    private List<Map<String, String>> restoreChatMessages(long userId, String conversationId) {
+        List<UserConversationMessage> rows = userConversationMessageMapper.selectMessages(
+                userId, conversationId, SessionType.GENERIC.name(), 2000);
+        if (rows == null || rows.isEmpty()) {
+            throw new IllegalStateException("unknown conversationId: " + conversationId);
+        }
+        List<Map<String, String>> restored = new ArrayList<Map<String, String>>();
+        restored.add(chatSystem());
+        for (UserConversationMessage row : rows) {
+            if ("user".equals(row.getRole())) {
+                restored.add(userMessage(row.getContent()));
+            } else if ("assistant".equals(row.getRole())) {
+                restored.add(assistantMessage(row.getContent()));
+            }
+        }
+        conversationStore.putChatMessages(conversationId, restored);
+        return restored;
     }
 }

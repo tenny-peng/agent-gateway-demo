@@ -4,7 +4,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.tenny.auth.entity.UserConversationMessage;
+import org.tenny.auth.mapper.UserConversationMessageMapper;
 import org.tenny.auth.model.SessionType;
+import org.tenny.auth.service.ConversationMessageService;
 import org.tenny.auth.service.ConversationTrackingService;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.tenny.client.LlmClient;
@@ -46,6 +49,8 @@ public class LogisticsAgentService {
     private final ConversationStore conversationStore;
     private final RagService ragService;
     private final ConversationTrackingService conversationTrackingService;
+    private final ConversationMessageService conversationMessageService;
+    private final UserConversationMessageMapper userConversationMessageMapper;
 
     public LogisticsAgentService(LlmClient llmClient,
                                  LlmStreamClient llmStreamClient,
@@ -54,7 +59,9 @@ public class LogisticsAgentService {
                                  WaybillQueryTool waybillQueryTool,
                                  ConversationStore conversationStore,
                                  RagService ragService,
-                                 ConversationTrackingService conversationTrackingService) {
+                                 ConversationTrackingService conversationTrackingService,
+                                 ConversationMessageService conversationMessageService,
+                                 UserConversationMessageMapper userConversationMessageMapper) {
         this.llmClient = llmClient;
         this.llmStreamClient = llmStreamClient;
         this.llmProperties = llmProperties;
@@ -63,6 +70,8 @@ public class LogisticsAgentService {
         this.conversationStore = conversationStore;
         this.ragService = ragService;
         this.conversationTrackingService = conversationTrackingService;
+        this.conversationMessageService = conversationMessageService;
+        this.userConversationMessageMapper = userConversationMessageMapper;
     }
 
     public AgentChatResponse run(String userMessage, String conversationId, long userId) {
@@ -91,6 +100,8 @@ public class LogisticsAgentService {
                     toolMsg.put("tool_call_id", call.getId());
                     toolMsg.put("content", payload);
                     messages.add(toolMsg);
+                    conversationMessageService.appendMessage(
+                            userId, convId, SessionType.LOGISTICS, "tool", payload, call.getName(), userMessage);
                 }
                 continue;
             }
@@ -103,6 +114,10 @@ public class LogisticsAgentService {
                 messages.add(assistant);
                 ragService.stripRagFromAgentMessages(messages);
                 conversationStore.putAgentMessages(convId, messages);
+                conversationMessageService.appendMessage(
+                        userId, convId, SessionType.LOGISTICS, "user", userMessage, null, userMessage);
+                conversationMessageService.appendMessage(
+                        userId, convId, SessionType.LOGISTICS, "assistant", result.getContent(), null, userMessage);
 
                 long latency = System.currentTimeMillis() - start;
                 log.info("[LogisticsAgent] done steps={}, latencyMs={}", steps, latency);
@@ -151,6 +166,8 @@ public class LogisticsAgentService {
                     toolMsg.put("tool_call_id", call.getId());
                     toolMsg.put("content", payload);
                     messages.add(toolMsg);
+                    conversationMessageService.appendMessage(
+                            userId, convId, SessionType.LOGISTICS, "tool", payload, call.getName(), userMessage);
                 }
                 continue;
             }
@@ -159,6 +176,10 @@ public class LogisticsAgentService {
                 messages.add(result.getAssistantMessage());
                 ragService.stripRagFromAgentMessages(messages);
                 conversationStore.putAgentMessages(convId, messages);
+                conversationMessageService.appendMessage(
+                        userId, convId, SessionType.LOGISTICS, "user", userMessage, null, userMessage);
+                conversationMessageService.appendMessage(
+                        userId, convId, SessionType.LOGISTICS, "assistant", result.getContent(), null, userMessage);
                 long latency = System.currentTimeMillis() - start;
                 log.info("[LogisticsAgentStream] done conversationId={} model={} steps={} latencyMs={} answerChars={}",
                         convId, llmProperties.getModel(), steps, latency, result.getContent().length());
@@ -192,7 +213,7 @@ public class LogisticsAgentService {
             convId = conversationId.trim();
             List<Map<String, Object>> previous = conversationStore.getAgentMessages(convId);
             if (previous == null) {
-                throw new IllegalStateException("unknown conversationId: " + convId);
+                previous = restoreAgentMessages(userId, convId);
             }
             messages.addAll(previous);
             Map<String, Object> user = new HashMap<String, Object>();
@@ -223,6 +244,29 @@ public class LogisticsAgentService {
             sb.append(c.getName()).append("(").append(JsonLogging.truncate(c.getArguments(), 200)).append(")");
         }
         return sb.toString();
+    }
+
+    private List<Map<String, Object>> restoreAgentMessages(long userId, String conversationId) {
+        List<UserConversationMessage> rows = userConversationMessageMapper.selectMessages(
+                userId, conversationId, SessionType.LOGISTICS.name(), 2000);
+        if (rows == null || rows.isEmpty()) {
+            throw new IllegalStateException("unknown conversationId: " + conversationId);
+        }
+        List<Map<String, Object>> restored = new ArrayList<Map<String, Object>>();
+        Map<String, Object> system = new HashMap<String, Object>();
+        system.put("role", "system");
+        system.put("content", AGENT_SYSTEM_BASE);
+        restored.add(system);
+        for (UserConversationMessage row : rows) {
+            if ("user".equals(row.getRole()) || "assistant".equals(row.getRole())) {
+                Map<String, Object> msg = new HashMap<String, Object>();
+                msg.put("role", row.getRole());
+                msg.put("content", row.getContent());
+                restored.add(msg);
+            }
+        }
+        conversationStore.putAgentMessages(conversationId, restored);
+        return restored;
     }
 
     private static final class AgentSession {
