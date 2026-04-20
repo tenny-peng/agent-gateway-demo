@@ -15,6 +15,7 @@ import org.tenny.logistics.service.LogisticsAgentService;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Logistics business agent (waybill tool): {@code /api/logistics/agent/...}.
@@ -40,12 +41,38 @@ public class LogisticsAgentController {
     public SseEmitter chatStream(@Valid @RequestBody ChatRequest request, HttpServletRequest httpRequest) {
         SseEmitter emitter = new SseEmitter(0L);
         AuthPrincipal principal = (AuthPrincipal) httpRequest.getAttribute(AuthPrincipal.REQUEST_ATTR);
+        
+        // 设置超时回调（客户端断开时调用）
+        emitter.onTimeout(() -> {
+            System.out.println("[Stream] Client disconnected (timeout) - conversationId: " + request.getConversationId());
+            emitter.complete();
+        });
+        
+        // 设置完成回调
+        emitter.onCompletion(() -> {
+            System.out.println("[Stream] Stream completed - conversationId: " + request.getConversationId());
+        });
+        
+        // 设置错误回调
+        emitter.onError(throwable -> {
+            System.out.println("[Stream] Stream error: " + throwable.getMessage() + " - conversationId: " + request.getConversationId());
+        });
+        
+        // 用于跟踪是否已被中断
+        AtomicBoolean isCompleted = new AtomicBoolean(false);
+        
         CompletableFuture.runAsync(() -> {
             try {
                 logisticsAgentService.runStream(request.getMessage(), request.getConversationId(),
-                        principal.getUserId(), emitter);
+                        principal.getUserId(), emitter, isCompleted);
             } catch (Exception e) {
-                emitter.completeWithError(e);
+                if (!"Stream interrupted".equals(e.getMessage())) {
+                    emitter.completeWithError(e);
+                } else {
+                    emitter.complete();
+                }
+            } finally {
+                isCompleted.set(true);
             }
         });
         return emitter;

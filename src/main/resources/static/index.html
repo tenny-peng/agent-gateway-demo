@@ -114,6 +114,21 @@
     .status { min-height: 1.2rem; color: var(--muted); font-size: 0.82rem; }
     .status.ok { color: var(--ok); }
     .status.err { color: var(--err); }
+    /* 停止生成按钮 */
+    .stop-btn {
+      background: var(--err);
+      border-color: var(--err);
+      color: #fff;
+      animation: pulse 1.5s infinite;
+    }
+    .stop-btn:hover {
+      background: #d43f36;
+      filter: none;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.85; }
+    }
     @media (max-width: 900px) {
       .main { grid-template-columns: 1fr; }
       .page { height: calc(100vh - 2rem); }
@@ -260,6 +275,9 @@
       var convByMode = { generic: "", logistics: "" };
       var convListByMode = { generic: [], logistics: [] };
       var messagesByMode = { generic: [], logistics: [] };
+      // 用于中断流式请求
+      var abortController = null;
+      var isStreaming = false;
 
       var msg = document.getElementById("msg");
       var send = document.getElementById("send");
@@ -481,14 +499,29 @@
         return buffer;
       }
       async function doSend() {
+        // 如果正在流式响应，点击则停止
+        if (isStreaming && abortController) {
+          abortController.abort();
+          return;
+        }
+        
         var text = (msg.value || "").trim();
         if (!text) {
           setStatus("请先输入消息", "err");
           return;
         }
-        send.disabled = true;
-        setStatus("请求中...", "");
+        
+        // 创建新的 AbortController
+        abortController = new AbortController();
+        isStreaming = true;
+        
+        // 更新按钮为停止状态
+        send.textContent = "停止";
+        send.classList.add("stop-btn");
+        send.disabled = false; // 停止按钮需要可点击
+        setStatus("AI 正在输入...", "");
         msg.value = "";
+        msg.disabled = true;
 
         var localRows = messagesByMode[mode] || [];
         localRows.push({ role: "user", content: text });
@@ -496,12 +529,14 @@
         messagesByMode[mode] = localRows;
         renderMessages();
         var answerIndex = localRows.length - 1;
+        var wasAborted = false;
 
         try {
           var res = await fetch(streamUrl[mode], {
             method: "POST",
             headers: authHeadersJson(),
-            body: JSON.stringify({ message: text, conversationId: convByMode[mode] || undefined })
+            body: JSON.stringify({ message: text, conversationId: convByMode[mode] || undefined }),
+            signal: abortController.signal
           });
           if (!res.ok) {
             var errText = await res.text();
@@ -539,13 +574,29 @@
           await loadConversations();
           renderConversationList();
         } catch (e) {
-          localRows[answerIndex].streaming = false;
-          localRows[answerIndex].plainText = true;
-          localRows[answerIndex].content = String(e.message || e);
-          renderMessages();
-          setStatus(String(e.message || e), "err");
+          if (e.name === "AbortError") {
+            // 用户主动停止
+            wasAborted = true;
+            localRows[answerIndex].streaming = false;
+            localRows[answerIndex].content += "\n\n*[已停止生成]*";
+            renderMessages();
+            setStatus("已停止生成", "");
+          } else {
+            localRows[answerIndex].streaming = false;
+            localRows[answerIndex].plainText = true;
+            localRows[answerIndex].content = String(e.message || e);
+            renderMessages();
+            setStatus(String(e.message || e), "err");
+          }
         } finally {
+          // 重置状态
+          isStreaming = false;
+          abortController = null;
+          send.textContent = "发送";
+          send.classList.remove("stop-btn");
           send.disabled = false;
+          msg.disabled = false;
+          msg.focus();
         }
       }
       function applyMode(nextMode) {

@@ -24,6 +24,7 @@ import org.tenny.rag.RagService;
 import org.tenny.util.JsonLogging;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -130,7 +131,7 @@ public class LogisticsAgentService {
         throw new IllegalStateException("Agent exceeded max steps (" + max + ") without final answer");
     }
 
-    public void runStream(String userMessage, String conversationId, long userId, SseEmitter emitter) throws IOException {
+    public void runStream(String userMessage, String conversationId, long userId, SseEmitter emitter, AtomicBoolean isCompleted) throws IOException {
         long start = System.currentTimeMillis();
         MediaType textUtf8 = MediaType.parseMediaType("text/plain;charset=UTF-8");
         MediaType jsonUtf8 = MediaType.parseMediaType("application/json;charset=UTF-8");
@@ -150,8 +151,12 @@ public class LogisticsAgentService {
             steps++;
             log.info("[LogisticsAgentStream] step {}/{}, conversationId={}", steps, max, convId);
 
-            LlmCompletionResult result = llmStreamClient.streamChatCompletionsWithTools(messages, tools, piece ->
-                    emitter.send(SseEmitter.event().data(piece, textUtf8)));
+            LlmCompletionResult result = llmStreamClient.streamChatCompletionsWithTools(messages, tools, piece -> {
+                if (isCompleted.get()) {
+                    throw new RuntimeException("Stream interrupted");
+                }
+                emitter.send(SseEmitter.event().data(piece, textUtf8));
+            });
 
             if (result.hasToolCalls()) {
                 log.info("[LogisticsAgentStream] step {} -> tool_calls: {}", steps, summarizeToolCalls(result.getToolCalls()));
