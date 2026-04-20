@@ -51,4 +51,13 @@ public interface UserConversationMapper extends BaseMapper<UserConversation> {
     @Select("SELECT COUNT(*) FROM user_conversation WHERE user_id = #{userId} AND session_type = #{sessionType}")
     long countSummaries(@Param("userId") long userId,
                         @Param("sessionType") String sessionType);
+
+    /**
+     * Delete conversation and all its messages for a user
+     */
+    @org.apache.ibatis.annotations.Delete("DELETE FROM user_conversation " +
+            "WHERE user_id = #{userId} AND conversation_id = #{conversationId} AND session_type = #{sessionType}")
+    int deleteConversation(@Param("userId") long userId,
+                           @Param("conversationId") String conversationId,
+                           @Param("sessionType") String sessionType);
 }

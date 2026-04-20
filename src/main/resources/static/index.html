@@ -73,11 +73,19 @@
     .conv-item {
       border: 1px solid var(--border); background: #1d2838; border-radius: 8px; padding: 0.5rem 0.55rem;
       cursor: pointer; text-align: left; color: var(--text);
+      position: relative;
     }
     .conv-item.active { border-color: #4f6b8d; background: #24354d; }
     .conv-title { font-size: 0.88rem; line-height: 1.35; margin-bottom: 0.2rem; }
     .conv-meta { font-size: 0.75rem; color: var(--muted); }
     .conv-empty { color: var(--muted); font-size: 0.85rem; padding: 0.5rem; }
+    .conv-actions { position: absolute; top: 0.3rem; right: 0.3rem; display: none; }
+    .conv-item:hover .conv-actions { display: block; }
+    .conv-delete { 
+      background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.75rem;
+      padding: 0.2rem 0.4rem; border-radius: 4px;
+    }
+    .conv-delete:hover { color: var(--err); background: rgba(248, 81, 73, 0.1); }
     #messages { flex: 1; overflow: auto; padding: 0.85rem; display: grid; gap: 0.6rem; align-content: start; min-height: 0; }
     .msg {
       max-width: min(85%, 760px); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.72rem;
@@ -300,14 +308,33 @@
             loadMessages(c.conversationId);
             renderConversationList();
           });
+          
           var title = document.createElement("div");
           title.className = "conv-title";
           title.textContent = c.title || "新会话";
+          
           var meta = document.createElement("div");
           meta.className = "conv-meta";
           meta.textContent = (c.lastMessageAt || c.firstSeenAt || "") + " · " + (c.messageCount || 0) + " 条";
+          
+          var actions = document.createElement("div");
+          actions.className = "conv-actions";
+          
+          var deleteBtn = document.createElement("button");
+          deleteBtn.className = "conv-delete";
+          deleteBtn.textContent = "删除";
+          deleteBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            if (confirm("确定要删除这个会话吗？所有消息将被永久删除。")) {
+              deleteConversation(c.conversationId);
+            }
+          });
+          
+          actions.appendChild(deleteBtn);
+          
           btn.appendChild(title);
           btn.appendChild(meta);
+          btn.appendChild(actions);
           convList.appendChild(btn);
         });
       }
@@ -478,6 +505,48 @@
           gotoLogin();
           return false;
         });
+      }
+
+      async function deleteConversation(conversationId) {
+        var type = sessionTypeMap[mode];
+        var url = "/api/chat/conversations/" + encodeURIComponent(conversationId) 
+                + "?sessionType=" + encodeURIComponent(type);
+        
+        setStatus("正在删除...", "");
+        
+        try {
+          var res = await fetch(url, {
+            method: "DELETE",
+            headers: authHeaders()
+          });
+          
+          if (res.status === 401) {
+            localStorage.removeItem(TOKEN_KEY);
+            gotoLogin();
+            return;
+          }
+          
+          if (!res.ok) {
+            var errText = await res.text();
+            throw new Error("删除失败: HTTP " + res.status + ": " + errText);
+          }
+          
+          setStatus("删除成功", "ok");
+          
+          // 如果删除的是当前会话，切换到新会话
+          if (convByMode[mode] === conversationId) {
+            convByMode[mode] = "";
+            messagesByMode[mode] = [];
+            chatTitle.textContent = "新会话";
+            renderMessages();
+          }
+          
+          // 重新加载会话列表
+          await loadConversations();
+          
+        } catch (e) {
+          setStatus(String(e.message || e), "err");
+        }
       }
 
       tabs.forEach(function (t) {

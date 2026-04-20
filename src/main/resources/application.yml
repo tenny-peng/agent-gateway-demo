@@ -31,9 +31,12 @@ app:
     password: ${ADMIN_BOOTSTRAP_PASSWORD:}
 
 llm:
-  base-url: https://api.hunyuan.cloud.tencent.com/v1
-  api-key: ${HUNYUAN_API_KEY:}
-  model: hunyuan-turbos-latest
+#  base-url: https://api.hunyuan.cloud.tencent.com/v1
+  base-url: http://localhost:11434/v1
+#  api-key: ${HUNYUAN_API_KEY:}
+  api-key: gpt-oss:20b
+#  model: hunyuan-turbos-latest
+  model: gpt-oss:20b
   timeout-ms: 15000
   stream-timeout-ms: 120000
 
