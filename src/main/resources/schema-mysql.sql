@@ -51,3 +51,19 @@ CREATE TABLE IF NOT EXISTS user_conversation_message (
   KEY idx_ucm_conv_time (user_id, conversation_id, session_type, created_at),
   CONSTRAINT fk_ucm_user FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- User Skill table for storing custom Markdown-based skills (Cursor-like rules)
+CREATE TABLE IF NOT EXISTS user_skill (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  title VARCHAR(255) NOT NULL COMMENT 'Skill title',
+  description VARCHAR(500) NULL COMMENT 'Skill description for matching',
+  content MEDIUMTEXT NOT NULL COMMENT 'Markdown content of the skill',
+  is_active TINYINT NOT NULL DEFAULT 1 COMMENT '1=active, 0=inactive',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_user_id (user_id),
+  KEY idx_active (is_active),
+  CONSTRAINT fk_skill_user FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB;

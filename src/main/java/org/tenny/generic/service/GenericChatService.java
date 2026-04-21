@@ -12,6 +12,7 @@ import org.tenny.common.session.ConversationStore;
 import org.tenny.config.LlmProperties;
 import org.tenny.dto.ChatResponse;
 import org.tenny.rag.RagService;
+import org.tenny.skill.service.SkillInjectService;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,6 +33,7 @@ public class GenericChatService {
     private final LlmProperties llmProperties;
     private final ConversationStore conversationStore;
     private final RagService ragService;
+    private final SkillInjectService skillInjectService;
     private final ConversationTrackingService conversationTrackingService;
     private final ConversationMessageService conversationMessageService;
     private final UserConversationMessageMapper userConversationMessageMapper;
@@ -41,6 +43,7 @@ public class GenericChatService {
                               LlmProperties llmProperties,
                               ConversationStore conversationStore,
                               RagService ragService,
+                              SkillInjectService skillInjectService,
                               ConversationTrackingService conversationTrackingService,
                               ConversationMessageService conversationMessageService,
                               UserConversationMessageMapper userConversationMessageMapper) {
@@ -49,6 +52,7 @@ public class GenericChatService {
         this.llmProperties = llmProperties;
         this.conversationStore = conversationStore;
         this.ragService = ragService;
+        this.skillInjectService = skillInjectService;
         this.conversationTrackingService = conversationTrackingService;
         this.conversationMessageService = conversationMessageService;
         this.userConversationMessageMapper = userConversationMessageMapper;
@@ -76,6 +80,7 @@ public class GenericChatService {
         }
 
         ragService.augmentChatSystem(messages, userMessage);
+        skillInjectService.augmentChatSystem(messages, userMessage, userId);
 
         long start = System.currentTimeMillis();
         String answer = llmClient.chatCompletions(messages);
@@ -112,6 +117,7 @@ public class GenericChatService {
             messages.add(userMessage(userMessage));
         }
         ragService.augmentChatSystem(messages, userMessage);
+        skillInjectService.augmentChatSystem(messages, userMessage, userId);
         return new StreamChatContext(id, messages, userId, userMessage);
     }
 
@@ -127,6 +133,7 @@ public class GenericChatService {
         List<Map<String, String>> next = new ArrayList<Map<String, String>>(ctx.getMessages());
         next.add(assistantMessage(acc.toString()));
         ragService.stripRagFromChatMessages(next);
+        skillInjectService.stripSkillsFromChatMessages(next);
         conversationStore.putChatMessages(ctx.getConversationId(), next);
         conversationMessageService.appendMessage(
                 ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null, ctx.getUserMessage());

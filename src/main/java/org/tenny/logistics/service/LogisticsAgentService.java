@@ -21,6 +21,7 @@ import org.tenny.dto.AgentChatResponse;
 import org.tenny.logistics.tool.LogisticsWaybillToolDefinitions;
 import org.tenny.logistics.tool.WaybillQueryTool;
 import org.tenny.rag.RagService;
+import org.tenny.skill.service.SkillInjectService;
 import org.tenny.util.JsonLogging;
 
 import java.io.IOException;
@@ -49,6 +50,7 @@ public class LogisticsAgentService {
     private final WaybillQueryTool waybillQueryTool;
     private final ConversationStore conversationStore;
     private final RagService ragService;
+    private final SkillInjectService skillInjectService;
     private final ConversationTrackingService conversationTrackingService;
     private final ConversationMessageService conversationMessageService;
     private final UserConversationMessageMapper userConversationMessageMapper;
@@ -60,6 +62,7 @@ public class LogisticsAgentService {
                                  WaybillQueryTool waybillQueryTool,
                                  ConversationStore conversationStore,
                                  RagService ragService,
+                                 SkillInjectService skillInjectService,
                                  ConversationTrackingService conversationTrackingService,
                                  ConversationMessageService conversationMessageService,
                                  UserConversationMessageMapper userConversationMessageMapper) {
@@ -70,6 +73,7 @@ public class LogisticsAgentService {
         this.waybillQueryTool = waybillQueryTool;
         this.conversationStore = conversationStore;
         this.ragService = ragService;
+        this.skillInjectService = skillInjectService;
         this.conversationTrackingService = conversationTrackingService;
         this.conversationMessageService = conversationMessageService;
         this.userConversationMessageMapper = userConversationMessageMapper;
@@ -114,6 +118,7 @@ public class LogisticsAgentService {
                 assistant.put("content", result.getContent());
                 messages.add(assistant);
                 ragService.stripRagFromAgentMessages(messages);
+                skillInjectService.stripSkillsFromAgentMessages(messages);
                 conversationStore.putAgentMessages(convId, messages);
                 conversationMessageService.appendMessage(
                         userId, convId, SessionType.LOGISTICS, "user", userMessage, null, userMessage);
@@ -180,6 +185,7 @@ public class LogisticsAgentService {
             if (result.getContent() != null && !result.getContent().trim().isEmpty()) {
                 messages.add(result.getAssistantMessage());
                 ragService.stripRagFromAgentMessages(messages);
+                skillInjectService.stripSkillsFromAgentMessages(messages);
                 conversationStore.putAgentMessages(convId, messages);
                 conversationMessageService.appendMessage(
                         userId, convId, SessionType.LOGISTICS, "user", userMessage, null, userMessage);
@@ -227,6 +233,7 @@ public class LogisticsAgentService {
             messages.add(user);
         }
         ragService.augmentAgentSystem(messages, userMessage);
+        skillInjectService.augmentAgentSystem(messages, userMessage, userId);
         return new AgentSession(convId, messages);
     }
 

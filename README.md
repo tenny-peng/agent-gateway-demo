@@ -12,6 +12,7 @@
 | **通用对话** | 无工具，多轮会话 + 流式 SSE；`POST /api/generic/chat`、`/api/generic/chat/stream` |
 | **物流业务 Agent** | `query_waybill` 工具循环 + 多轮 + 流式；`POST /api/logistics/agent/chat`、`/chat/stream` |
 | **RAG（最小实现）** | classpath Markdown 分块、本地关键词/字元检索、`top-k` 注入 system；落库前剥离检索段 |
+| **Skill（自定义规则）** | 用户上传 Markdown 技能文档，聊天时根据问题自动匹配并注入到 System Prompt；`/skills.html` 管理页面 |
 | **评测** | `eval/cases.json` + `scripts/eval-run.ps1` 冒烟（需本机已启动应用并配置 Key） |
 | **静态页** | `http://localhost:8080/` 简易流式测试（通用 / 物流两个 Tab）；流式结束后用 **marked + DOMPurify** 渲染 Markdown（粗体、列表等） |
 | **登录 / 注册** | opaque **UUID** 存 **Redis**（会话），用户与统计在 **MySQL**（**MyBatis-Plus**）；前端 `localStorage` 仅存令牌字符串 |
@@ -53,10 +54,11 @@ mvn spring-boot:run
 
 ## HTTP 路径（当前约定）
 
-- **通用**：`/api/generic/chat`、`/api/generic/chat/stream`（需登录）  
-- **物流 Agent**：`/api/logistics/agent/chat`、`/api/logistics/agent/chat/stream`（需登录）  
-- **认证**：`/api/auth/register`、`/api/auth/login`、`/api/auth/me`、`/api/auth/logout`  
-- **管理**：`/api/admin/stats`（`ADMIN`）  
+- **通用**：`/api/generic/chat`、`/api/generic/chat/stream`（需登录）
+- **物流 Agent**：`/api/logistics/agent/chat`、`/api/logistics/agent/chat/stream`（需登录）
+- **认证**：`/api/auth/register`、`/api/auth/login`、`/api/auth/me`、`/api/auth/logout`
+- **Skill**：`GET /api/skill`、`POST /api/skill`、`PUT /api/skill/{id}`、`DELETE /api/skill/{id}`、`POST /api/skill/{id}/toggle`（需登录）
+- **管理**：`/api/admin/stats`（`ADMIN`）
 - 全局：`IllegalStateException` → 400；`UnauthorizedException` → 401；`ForbiddenException` → 403（`ApiExceptionHandler`）
 
 前端调用说明（对应静态页）：
@@ -81,6 +83,7 @@ org.tenny
 ├── generic/             # 通用问答：service + web
 ├── logistics/           # 物流 Agent：service + web + tool（运单演示）
 ├── rag/                 # RAG 加载与注入
+├── skill/               # Skill 功能：entity/mapper/service/web（用户自定义规则）
 └── web/                 # 全局异常处理
 ```
 
@@ -145,10 +148,16 @@ powershell -ExecutionPolicy Bypass -File scripts/eval-run.ps1 -ApiToken "<token>
 - **做法**（本仓库 `static/index.html`）：流式过程中仍用纯文本展示「正在输出」；**整段接收完毕后** 用 **[marked](https://github.com/markedjs/marked)** 转成 HTML，再用 **[DOMPurify](https://github.com/cure53/DOMPurify)** 做 **XSS 消毒** 后写入 `innerHTML`。CDN 加载失败时回退为纯文本。  
 - **注意**：边下边渲染 Markdown 会遇到「半个 `**`」等不完整语法，故采用 **结束后一次性渲染**；若以后要「打字机 + 实时排版」，需更复杂的增量解析或仅对闭合块渲染。
 
-### 8. 其它（可选扩展）
+### 8. Skill 功能（Cursor 风格）
 
-- **Embedding / 向量库**：检索从「字匹配」升级为语义相似度时再引入；不必与首版 RAG 绑死。  
-- **Skill / 用户说明书**：本质是 **按用户或租户拼 system**（上传 md、在线编辑），与 RAG「按问题检索」可并存，注意顺序与长度。  
+- **原理**：用户通过 `/skills.html` 页面上传 Markdown 格式的技能文档（如代码规范、操作手册），存储在 `user_skill` 表中。
+- **匹配**：聊天时提取用户问题的关键词，与技能标题、描述、内容进行匹配，返回最相关的 Top-3 个技能。
+- **注入**：将匹配到的技能内容注入到 System Prompt 中，引导 LLM 按照技能文档中的规则/步骤回答。
+- **持久化**：在保存会话消息前会剥离注入的技能内容，避免污染历史记录。
+
+### 9. 其它（可选扩展）
+
+- **Embedding / 向量库**：检索从「字匹配」升级为语义相似度时再引入；不必与首版 RAG 绑死。
 - **联网**：要么 **先搜再注入上下文**，要么 **`web_search` 型 Tool** 走与 `query_waybill` 相同的多轮协议；结果都要 **top-k + 截断 + 总 token 预算**，避免整页 HTML 进模型。
 
 ---
