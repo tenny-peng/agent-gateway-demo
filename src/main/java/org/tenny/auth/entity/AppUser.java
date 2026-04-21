@@ -20,6 +20,9 @@ public class AppUser {
 
     private String role;
 
+    @TableField("chat_limit_enabled")
+    private Boolean chatLimitEnabled;
+
     @TableField("created_at")
     private LocalDateTime createdAt;
 
@@ -57,6 +60,14 @@ public class AppUser {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public Boolean getChatLimitEnabled() {
+        return chatLimitEnabled;
+    }
+
+    public void setChatLimitEnabled(Boolean chatLimitEnabled) {
+        this.chatLimitEnabled = chatLimitEnabled;
     }
 
     public void setCreatedAt(LocalDateTime createdAt) {

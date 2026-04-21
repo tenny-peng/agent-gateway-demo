@@ -39,6 +39,7 @@ public class AuthService {
         u.setUsername(uname);
         u.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         u.setRole("USER");
+        u.setChatLimitEnabled(true); // New users have chat limit enabled by default
         appUserMapper.insert(u);
         String token = sessionTokenService.createSession(u.getId(), uname, "USER");
         return new AuthResponse(

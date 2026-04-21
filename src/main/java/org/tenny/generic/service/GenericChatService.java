@@ -2,8 +2,11 @@ package org.tenny.generic.service;
 
 import org.springframework.stereotype.Service;
 import org.tenny.auth.model.SessionType;
+import org.tenny.auth.entity.AppUser;
 import org.tenny.auth.entity.UserConversationMessage;
+import org.tenny.auth.mapper.AppUserMapper;
 import org.tenny.auth.mapper.UserConversationMessageMapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.tenny.auth.service.ConversationMessageService;
 import org.tenny.auth.service.ConversationTrackingService;
 import org.tenny.client.LlmClient;
@@ -13,6 +16,7 @@ import org.tenny.config.LlmConfigProvider;
 import org.tenny.dto.ChatResponse;
 import org.tenny.rag.RagService;
 import org.tenny.skill.service.SkillInjectService;
+import org.tenny.web.ChatLimitExceededException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,6 +41,7 @@ public class GenericChatService {
     private final ConversationTrackingService conversationTrackingService;
     private final ConversationMessageService conversationMessageService;
     private final UserConversationMessageMapper userConversationMessageMapper;
+    private final AppUserMapper appUserMapper;
 
     public GenericChatService(LlmClient llmClient,
                               LlmStreamClient llmStreamClient,
@@ -46,7 +51,8 @@ public class GenericChatService {
                               SkillInjectService skillInjectService,
                               ConversationTrackingService conversationTrackingService,
                               ConversationMessageService conversationMessageService,
-                              UserConversationMessageMapper userConversationMessageMapper) {
+                              UserConversationMessageMapper userConversationMessageMapper,
+                              AppUserMapper appUserMapper) {
         this.llmClient = llmClient;
         this.llmStreamClient = llmStreamClient;
         this.llmConfigProvider = llmConfigProvider;
@@ -56,12 +62,28 @@ public class GenericChatService {
         this.conversationTrackingService = conversationTrackingService;
         this.conversationMessageService = conversationMessageService;
         this.userConversationMessageMapper = userConversationMessageMapper;
+        this.appUserMapper = appUserMapper;
+    }
+
+    private void checkChatLimit(long userId) {
+        AppUser user = appUserMapper.selectById(userId);
+        if (user != null && Boolean.TRUE.equals(user.getChatLimitEnabled())) {
+            // Check message count limit (e.g., 10 messages per user)
+            com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<UserConversationMessage> wrapper =
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+            wrapper.eq("user_id", userId);
+            Long messageCount = userConversationMessageMapper.selectCount(wrapper);
+            if (messageCount >= 10) { // Limit to 10 messages
+                throw new ChatLimitExceededException("Chat limit exceeded (10 messages). Please contact administrator to increase limit.");
+            }
+        }
     }
 
     /**
      * Plain chat (no tools). Pass {@code conversationId} from the previous {@link ChatResponse} to continue.
      */
     public ChatResponse chat(String userMessage, String conversationId, long userId) {
+        checkChatLimit(userId);
         String id;
         List<Map<String, String>> messages = new ArrayList<Map<String, String>>();
         if (conversationId == null || conversationId.trim().isEmpty()) {
@@ -100,6 +122,7 @@ public class GenericChatService {
      * Build message list for streaming; first SSE event should expose {@link StreamChatContext#getConversationId()}.
      */
     public StreamChatContext prepareStreamContext(String userMessage, String conversationId, long userId) {
+        checkChatLimit(userId);
         String id;
         List<Map<String, String>> messages = new ArrayList<Map<String, String>>();
         if (conversationId == null || conversationId.trim().isEmpty()) {

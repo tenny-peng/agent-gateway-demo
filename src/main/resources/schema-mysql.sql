@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS app_user (
   username VARCHAR(64) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(16) NOT NULL DEFAULT 'USER',
+  chat_limit_enabled TINYINT NOT NULL DEFAULT 1 COMMENT '1=chat limit enabled, 0=unlimited',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_app_user_username (username)

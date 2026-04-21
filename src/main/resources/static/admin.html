@@ -253,6 +253,31 @@
       </section>
 
       <section class="section">
+        <h3 class="section-title">用户管理</h3>
+        <div class="actions">
+          <button id="btnLoadUsers">加载用户列表</button>
+        </div>
+        <div class="users-list" id="usersList" style="display: none; margin-top: 1rem;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: var(--panel-2);">
+                <th style="padding: 0.75rem; text-align: left; border: 1px solid var(--border);">ID</th>
+                <th style="padding: 0.75rem; text-align: left; border: 1px solid var(--border);">用户名</th>
+                <th style="padding: 0.75rem; text-align: left; border: 1px solid var(--border);">角色</th>
+                <th style="padding: 0.75rem; text-align: left; border: 1px solid var(--border);">注册时间</th>
+                <th style="padding: 0.75rem; text-align: left; border: 1px solid var(--border);">会话数</th>
+                <th style="padding: 0.75rem; text-align: left; border: 1px solid var(--border);">聊天限制状态</th>
+                <th style="padding: 0.75rem; text-align: left; border: 1px solid var(--border);">操作</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <!-- Users will be loaded here -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section">
         <h3 class="section-title">所有用户的技能</h3>
         <div class="skills-grid" id="skillsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
           <!-- Skills will be loaded here -->
@@ -280,6 +305,9 @@
       var statusEl = document.getElementById("status");
       var btnRefreshStats = document.getElementById("btnRefreshStats");
       var btnClearCache = document.getElementById("btnClearCache");
+      var btnLoadUsers = document.getElementById("btnLoadUsers");
+      var usersList = document.getElementById("usersList");
+      var usersTableBody = document.getElementById("usersTableBody");
 
       function getToken() {
         return localStorage.getItem(TOKEN_KEY) || "";
@@ -340,6 +368,83 @@
           });
       }
 
+      function loadUsers() {
+        setStatus("加载用户列表中...", "info");
+        btnLoadUsers.disabled = true;
+
+        fetch("/api/admin/users", { headers: authHeaders() })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function (users) {
+            usersTableBody.innerHTML = "";
+            if (!users || !users.length) {
+              usersTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--muted);">暂无用户</td></tr>';
+            } else {
+              users.forEach(function (user) {
+                var row = document.createElement("tr");
+                row.innerHTML =
+                  '<td style="padding: 0.75rem; border: 1px solid var(--border);">' + user.id + '</td>' +
+                  '<td style="padding: 0.75rem; border: 1px solid var(--border);">' + (user.username || '') + '</td>' +
+                  '<td style="padding: 0.75rem; border: 1px solid var(--border);">' + (user.role || '') + '</td>' +
+                  '<td style="padding: 0.75rem; border: 1px solid var(--border);">' + (user.createdAt || '') + '</td>' +
+                  '<td style="padding: 0.75rem; border: 1px solid var(--border);">' + (user.sessionCount || 0) + '</td>' +
+                  '<td style="padding: 0.75rem; border: 1px solid var(--border);" id="limit-' + user.id + '">未知</td>' +
+                  '<td style="padding: 0.75rem; border: 1px solid var(--border);">' +
+                    '<button class="btn" onclick="toggleChatLimit(' + user.id + ', false)">禁用限制</button> ' +
+                    '<button class="btn" onclick="toggleChatLimit(' + user.id + ', true)">启用限制</button>' +
+                  '</td>';
+                usersTableBody.appendChild(row);
+                // Load current limit status
+                loadChatLimitStatus(user.id);
+              });
+            }
+            usersList.style.display = "block";
+            setStatus("用户列表加载完成", "ok");
+          })
+          .catch(function (e) {
+            setStatus("加载失败: " + e.message, "err");
+          })
+          .finally(function () {
+            btnLoadUsers.disabled = false;
+          });
+      }
+
+      function loadChatLimitStatus(userId) {
+        fetch("/api/admin/users/" + userId + "/chat-limit", { headers: authHeaders() })
+          .then(function (res) {
+            if (res.status === 404) {
+              document.getElementById("limit-" + userId).textContent = "无限制";
+              return;
+            }
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function (data) {
+            document.getElementById("limit-" + userId).textContent = data.limitEnabled ? "已启用" : "无限制";
+          })
+          .catch(function (e) {
+            document.getElementById("limit-" + userId).textContent = "未知";
+          });
+      }
+
+      function toggleChatLimit(userId, limitEnabled) {
+        setStatus("更新中...", "info");
+        fetch("/api/admin/users/" + userId + "/chat-limit?limitEnabled=" + limitEnabled, {
+          method: "PUT",
+          headers: authHeaders()
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            setStatus("更新成功", "ok");
+            loadChatLimitStatus(userId);
+          })
+          .catch(function (e) {
+            setStatus("更新失败: " + e.message, "err");
+          });
+      }
+
       btnRefreshStats.addEventListener("click", function () {
         btnRefreshStats.disabled = true;
         btnRefreshStats.textContent = "刷新中...";
@@ -351,6 +456,7 @@
       });
 
       btnClearCache.addEventListener("click", clearCache);
+      btnLoadUsers.addEventListener("click", loadUsers);
 
        // 页面加载时获取统计数据
        loadStats();

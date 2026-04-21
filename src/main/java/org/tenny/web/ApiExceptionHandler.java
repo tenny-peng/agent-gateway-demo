@@ -31,4 +31,11 @@ public class ApiExceptionHandler {
         body.put("error", e.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
+
+    @ExceptionHandler(ChatLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleChatLimitExceeded(ChatLimitExceededException e) {
+        Map<String, Object> body = new HashMap<String, Object>();
+        body.put("error", e.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
 }

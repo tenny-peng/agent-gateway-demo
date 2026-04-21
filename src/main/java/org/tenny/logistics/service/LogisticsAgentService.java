@@ -4,8 +4,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.tenny.auth.entity.AppUser;
 import org.tenny.auth.entity.UserConversationMessage;
+import org.tenny.auth.mapper.AppUserMapper;
 import org.tenny.auth.mapper.UserConversationMessageMapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.tenny.auth.model.SessionType;
 import org.tenny.auth.service.ConversationMessageService;
 import org.tenny.auth.service.ConversationTrackingService;
@@ -23,6 +26,7 @@ import org.tenny.logistics.tool.WaybillQueryTool;
 import org.tenny.rag.RagService;
 import org.tenny.skill.service.SkillInjectService;
 import org.tenny.util.JsonLogging;
+import org.tenny.web.ChatLimitExceededException;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -54,6 +58,7 @@ public class LogisticsAgentService {
     private final ConversationTrackingService conversationTrackingService;
     private final ConversationMessageService conversationMessageService;
     private final UserConversationMessageMapper userConversationMessageMapper;
+    private final AppUserMapper appUserMapper;
 
     public LogisticsAgentService(LlmClient llmClient,
                                  LlmStreamClient llmStreamClient,
@@ -65,7 +70,8 @@ public class LogisticsAgentService {
                                  SkillInjectService skillInjectService,
                                  ConversationTrackingService conversationTrackingService,
                                  ConversationMessageService conversationMessageService,
-                                 UserConversationMessageMapper userConversationMessageMapper) {
+                                 UserConversationMessageMapper userConversationMessageMapper,
+                                 AppUserMapper appUserMapper) {
         this.llmClient = llmClient;
         this.llmStreamClient = llmStreamClient;
         this.llmConfigProvider = llmConfigProvider;
@@ -77,9 +83,25 @@ public class LogisticsAgentService {
         this.conversationTrackingService = conversationTrackingService;
         this.conversationMessageService = conversationMessageService;
         this.userConversationMessageMapper = userConversationMessageMapper;
+        this.appUserMapper = appUserMapper;
+    }
+
+    private void checkChatLimit(long userId) {
+        AppUser user = appUserMapper.selectById(userId);
+        if (user != null && Boolean.TRUE.equals(user.getChatLimitEnabled())) {
+            // Check message count limit (e.g., 10 messages per user)
+            com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<UserConversationMessage> wrapper =
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+            wrapper.eq("user_id", userId);
+            Long messageCount = userConversationMessageMapper.selectCount(wrapper);
+            if (messageCount >= 10) { // Limit to 10 messages
+                throw new ChatLimitExceededException("Chat limit exceeded (10 messages). Please contact administrator to increase limit.");
+            }
+        }
     }
 
     public AgentChatResponse run(String userMessage, String conversationId, long userId) {
+        checkChatLimit(userId);
         long start = System.currentTimeMillis();
 
         AgentSession session = prepareAgentSession(userMessage, conversationId, userId);
@@ -137,6 +159,7 @@ public class LogisticsAgentService {
     }
 
     public void runStream(String userMessage, String conversationId, long userId, SseEmitter emitter, AtomicBoolean isCompleted) throws IOException {
+        checkChatLimit(userId);
         long start = System.currentTimeMillis();
         MediaType textUtf8 = MediaType.parseMediaType("text/plain;charset=UTF-8");
         MediaType jsonUtf8 = MediaType.parseMediaType("application/json;charset=UTF-8");
