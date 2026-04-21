@@ -31,12 +31,9 @@ app:
     password: ${ADMIN_BOOTSTRAP_PASSWORD:}
 
 llm:
-#  base-url: https://api.hunyuan.cloud.tencent.com/v1
-  base-url: http://localhost:11434/v1
-#  api-key: ${HUNYUAN_API_KEY:}
-  api-key: qwen3.5:4b
-#  model: hunyuan-turbos-latest
-  model: qwen3.5:4b
+  base-url: https://ark.cn-beijing.volces.com/api/v3
+  api-key: ${API_KEY:}
+  model: deepseek-v3-2-251201
   timeout-ms: 15000
   stream-timeout-ms: 120000
 
