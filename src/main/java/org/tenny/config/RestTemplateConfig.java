@@ -9,10 +9,10 @@ import org.springframework.web.client.RestTemplate;
 public class RestTemplateConfig {
 
     @Bean
-    public RestTemplate llmRestTemplate(RestTemplateBuilder builder, LlmProperties llmProperties) {
+    public RestTemplate llmRestTemplate(RestTemplateBuilder builder, LlmConfigProvider llmConfigProvider) {
         return builder
-                .setConnectTimeout(java.time.Duration.ofMillis(llmProperties.getTimeoutMs()))
-                .setReadTimeout(java.time.Duration.ofMillis(llmProperties.getTimeoutMs()))
+                .setConnectTimeout(java.time.Duration.ofMillis(llmConfigProvider.getTimeoutMs()))
+                .setReadTimeout(java.time.Duration.ofMillis(llmConfigProvider.getTimeoutMs()))
                 .build();
     }
 }

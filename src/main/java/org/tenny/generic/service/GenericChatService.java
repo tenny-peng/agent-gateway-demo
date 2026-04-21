@@ -9,7 +9,7 @@ import org.tenny.auth.service.ConversationTrackingService;
 import org.tenny.client.LlmClient;
 import org.tenny.client.LlmStreamClient;
 import org.tenny.common.session.ConversationStore;
-import org.tenny.config.LlmProperties;
+import org.tenny.config.LlmConfigProvider;
 import org.tenny.dto.ChatResponse;
 import org.tenny.rag.RagService;
 import org.tenny.skill.service.SkillInjectService;
@@ -30,7 +30,7 @@ public class GenericChatService {
 
     private final LlmClient llmClient;
     private final LlmStreamClient llmStreamClient;
-    private final LlmProperties llmProperties;
+    private final LlmConfigProvider llmConfigProvider;
     private final ConversationStore conversationStore;
     private final RagService ragService;
     private final SkillInjectService skillInjectService;
@@ -40,7 +40,7 @@ public class GenericChatService {
 
     public GenericChatService(LlmClient llmClient,
                               LlmStreamClient llmStreamClient,
-                              LlmProperties llmProperties,
+                              LlmConfigProvider llmConfigProvider,
                               ConversationStore conversationStore,
                               RagService ragService,
                               SkillInjectService skillInjectService,
@@ -49,7 +49,7 @@ public class GenericChatService {
                               UserConversationMessageMapper userConversationMessageMapper) {
         this.llmClient = llmClient;
         this.llmStreamClient = llmStreamClient;
-        this.llmProperties = llmProperties;
+        this.llmConfigProvider = llmConfigProvider;
         this.conversationStore = conversationStore;
         this.ragService = ragService;
         this.skillInjectService = skillInjectService;
@@ -93,7 +93,7 @@ public class GenericChatService {
         conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "user", userMessage, null, userMessage);
         conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "assistant", answer, null, userMessage);
 
-        return new ChatResponse(answer, llmProperties.getModel(), latency, id);
+        return new ChatResponse(answer, llmConfigProvider.getModel(), latency, id);
     }
 
     /**

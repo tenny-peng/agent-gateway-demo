@@ -67,3 +67,20 @@ CREATE TABLE IF NOT EXISTS user_skill (
   KEY idx_active (is_active),
   CONSTRAINT fk_skill_user FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- LLM Configuration table for managing AI model settings
+CREATE TABLE IF NOT EXISTS llm_config (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL COMMENT 'Configuration name for identification',
+  base_url VARCHAR(500) NOT NULL COMMENT 'OpenAI-compatible base URL',
+  api_key VARCHAR(500) NOT NULL COMMENT 'API key for authentication',
+  model VARCHAR(100) NOT NULL COMMENT 'Model name',
+  timeout_ms INT NOT NULL DEFAULT 15000 COMMENT 'Request timeout in milliseconds',
+  stream_timeout_ms INT NOT NULL DEFAULT 120000 COMMENT 'Stream timeout in milliseconds',
+  is_active TINYINT NOT NULL DEFAULT 0 COMMENT '1=active configuration, 0=inactive',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_llm_config_name (name),
+  KEY idx_active (is_active)
+) ENGINE=InnoDB;

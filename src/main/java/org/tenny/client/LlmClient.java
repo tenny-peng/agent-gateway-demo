@@ -11,7 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
-import org.tenny.config.LlmProperties;
+import org.tenny.config.LlmConfigProvider;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,14 +22,14 @@ import java.util.Map;
 public class LlmClient {
 
     private final RestTemplate restTemplate;
-    private final LlmProperties llmProperties;
+    private final LlmConfigProvider llmConfigProvider;
     private final ObjectMapper objectMapper;
 
     public LlmClient(@Qualifier("llmRestTemplate") RestTemplate restTemplate,
-                     LlmProperties llmProperties,
+                     LlmConfigProvider llmConfigProvider,
                      ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
-        this.llmProperties = llmProperties;
+        this.llmConfigProvider = llmConfigProvider;
         this.objectMapper = objectMapper;
     }
 
@@ -56,15 +56,14 @@ public class LlmClient {
      */
     public LlmCompletionResult chatCompletions(List<Map<String, Object>> messages,
                                                List<Map<String, Object>> tools) {
-        String apiKey = LlmKeyUtil.normalizeApiKey(llmProperties.getApiKey());
-        if (apiKey.isEmpty()) {
-            throw new IllegalStateException("Missing API key: set llm.api-key or environment variable HUNYUAN_API_KEY");
+        String apiKey = LlmKeyUtil.normalizeApiKey(llmConfigProvider.getApiKey());
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            throw new IllegalStateException("Missing API key: configure LLM config in database or set environment variable API_KEY");
         }
-
-        String url = LlmKeyUtil.trimTrailingSlash(llmProperties.getBaseUrl()) + "/chat/completions";
+        String url = LlmKeyUtil.trimTrailingSlash(llmConfigProvider.getBaseUrl()) + "/chat/completions";
 
         Map<String, Object> body = new HashMap<String, Object>();
-        body.put("model", llmProperties.getModel());
+        body.put("model", llmConfigProvider.getModel());
         body.put("messages", messages);
         body.put("stream", Boolean.FALSE);
         if (tools != null && !tools.isEmpty()) {

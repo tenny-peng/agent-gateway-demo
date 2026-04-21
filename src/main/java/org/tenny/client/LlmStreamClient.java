@@ -3,7 +3,7 @@ package org.tenny.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
-import org.tenny.config.LlmProperties;
+import org.tenny.config.LlmConfigProvider;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -24,11 +24,11 @@ import java.util.TreeMap;
 @Component
 public class LlmStreamClient {
 
-    private final LlmProperties llmProperties;
+    private final LlmConfigProvider llmConfigProvider;
     private final ObjectMapper objectMapper;
 
-    public LlmStreamClient(LlmProperties llmProperties, ObjectMapper objectMapper) {
-        this.llmProperties = llmProperties;
+    public LlmStreamClient(LlmConfigProvider llmConfigProvider, ObjectMapper objectMapper) {
+        this.llmConfigProvider = llmConfigProvider;
         this.objectMapper = objectMapper;
     }
 
@@ -37,17 +37,17 @@ public class LlmStreamClient {
      */
     public void streamChatCompletions(List<Map<String, String>> messages, StreamDeltaConsumer onDelta)
             throws IOException {
-        String apiKey = LlmKeyUtil.normalizeApiKey(llmProperties.getApiKey());
+        String apiKey = LlmKeyUtil.normalizeApiKey(llmConfigProvider.getApiKey());
         if (apiKey.isEmpty()) {
-            throw new IllegalStateException("Missing API key: set llm.api-key or environment variable HUNYUAN_API_KEY");
+            throw new IllegalStateException("Missing API key: configure LLM config in database or set environment variable API_KEY");
         }
 
-        String urlStr = LlmKeyUtil.trimTrailingSlash(llmProperties.getBaseUrl()) + "/chat/completions";
+        String urlStr = LlmKeyUtil.trimTrailingSlash(llmConfigProvider.getBaseUrl()) + "/chat/completions";
         URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
-        conn.setConnectTimeout(llmProperties.getTimeoutMs());
-        conn.setReadTimeout(llmProperties.getStreamTimeoutMs());
+        conn.setConnectTimeout(llmConfigProvider.getTimeoutMs());
+        conn.setReadTimeout(llmConfigProvider.getStreamTimeoutMs());
         conn.setDoOutput(true);
         conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
         conn.setRequestProperty("Accept", "text/event-stream");
@@ -58,7 +58,7 @@ public class LlmStreamClient {
             msgObj.add(new HashMap<String, Object>(row));
         }
         Map<String, Object> body = new HashMap<String, Object>();
-        body.put("model", llmProperties.getModel());
+        body.put("model", llmConfigProvider.getModel());
         body.put("messages", msgObj);
         body.put("stream", Boolean.TRUE);
 
@@ -125,24 +125,24 @@ public class LlmStreamClient {
                                                                 List<Map<String, Object>> tools,
                                                                 StreamDeltaConsumer onContentDelta)
             throws IOException {
-        String apiKey = LlmKeyUtil.normalizeApiKey(llmProperties.getApiKey());
+        String apiKey = LlmKeyUtil.normalizeApiKey(llmConfigProvider.getApiKey());
         if (apiKey.isEmpty()) {
-            throw new IllegalStateException("Missing API key: set llm.api-key or environment variable HUNYUAN_API_KEY");
+            throw new IllegalStateException("Missing API key: configure LLM config in database or set environment variable API_KEY");
         }
 
-        String urlStr = LlmKeyUtil.trimTrailingSlash(llmProperties.getBaseUrl()) + "/chat/completions";
+        String urlStr = LlmKeyUtil.trimTrailingSlash(llmConfigProvider.getBaseUrl()) + "/chat/completions";
         URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
-        conn.setConnectTimeout(llmProperties.getTimeoutMs());
-        conn.setReadTimeout(llmProperties.getStreamTimeoutMs());
+        conn.setConnectTimeout(llmConfigProvider.getTimeoutMs());
+        conn.setReadTimeout(llmConfigProvider.getStreamTimeoutMs());
         conn.setDoOutput(true);
         conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
         conn.setRequestProperty("Accept", "text/event-stream");
         conn.setRequestProperty("Authorization", "Bearer " + apiKey);
 
         Map<String, Object> body = new HashMap<String, Object>();
-        body.put("model", llmProperties.getModel());
+        body.put("model", llmConfigProvider.getModel());
         body.put("messages", messages);
         body.put("stream", Boolean.TRUE);
         if (tools != null && !tools.isEmpty()) {

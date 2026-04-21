@@ -16,7 +16,7 @@ import org.tenny.client.LlmStreamClient;
 import org.tenny.client.LlmToolCall;
 import org.tenny.common.session.ConversationStore;
 import org.tenny.config.AgentProperties;
-import org.tenny.config.LlmProperties;
+import org.tenny.config.LlmConfigProvider;
 import org.tenny.dto.AgentChatResponse;
 import org.tenny.logistics.tool.LogisticsWaybillToolDefinitions;
 import org.tenny.logistics.tool.WaybillQueryTool;
@@ -45,7 +45,7 @@ public class LogisticsAgentService {
 
     private final LlmClient llmClient;
     private final LlmStreamClient llmStreamClient;
-    private final LlmProperties llmProperties;
+    private final LlmConfigProvider llmConfigProvider;
     private final AgentProperties agentProperties;
     private final WaybillQueryTool waybillQueryTool;
     private final ConversationStore conversationStore;
@@ -57,7 +57,7 @@ public class LogisticsAgentService {
 
     public LogisticsAgentService(LlmClient llmClient,
                                  LlmStreamClient llmStreamClient,
-                                 LlmProperties llmProperties,
+                                 LlmConfigProvider llmConfigProvider,
                                  AgentProperties agentProperties,
                                  WaybillQueryTool waybillQueryTool,
                                  ConversationStore conversationStore,
@@ -68,7 +68,7 @@ public class LogisticsAgentService {
                                  UserConversationMessageMapper userConversationMessageMapper) {
         this.llmClient = llmClient;
         this.llmStreamClient = llmStreamClient;
-        this.llmProperties = llmProperties;
+        this.llmConfigProvider = llmConfigProvider;
         this.agentProperties = agentProperties;
         this.waybillQueryTool = waybillQueryTool;
         this.conversationStore = conversationStore;
@@ -127,7 +127,7 @@ public class LogisticsAgentService {
 
                 long latency = System.currentTimeMillis() - start;
                 log.info("[LogisticsAgent] done steps={}, latencyMs={}", steps, latency);
-                return new AgentChatResponse(result.getContent(), llmProperties.getModel(), latency, steps, convId);
+                return new AgentChatResponse(result.getContent(), llmConfigProvider.getModel(), latency, steps, convId);
             }
 
             throw new IllegalStateException("LLM returned empty content and no tool_calls; raw=" + result.getAssistantMessage());
@@ -193,7 +193,7 @@ public class LogisticsAgentService {
                         userId, convId, SessionType.LOGISTICS, "assistant", result.getContent(), null, userMessage);
                 long latency = System.currentTimeMillis() - start;
                 log.info("[LogisticsAgentStream] done conversationId={} model={} steps={} latencyMs={} answerChars={}",
-                        convId, llmProperties.getModel(), steps, latency, result.getContent().length());
+                        convId, llmConfigProvider.getModel(), steps, latency, result.getContent().length());
                 log.debug("[LogisticsAgentStream] answer: {}", JsonLogging.truncate(result.getContent(), 4000));
                 emitter.complete();
                 return;
