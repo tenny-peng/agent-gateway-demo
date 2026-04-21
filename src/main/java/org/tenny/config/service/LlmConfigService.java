@@ -53,6 +53,13 @@ public class LlmConfigService {
     }
 
     /**
+     * Get a configuration by name.
+     */
+    public LlmConfig getConfigByName(String name) {
+        return llmConfigMapper.selectByName(name);
+    }
+
+    /**
      * Create a new LLM configuration.
      */
     @Transactional

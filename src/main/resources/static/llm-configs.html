@@ -679,6 +679,11 @@
       }
 
       function showCreateModal() {
+        if (editingConfig) {
+          if (!confirm("您正在编辑配置，确定要放弃编辑并创建新配置吗？")) {
+            return;
+          }
+        }
         editingConfig = null;
         modalTitle.textContent = "创建 LLM 配置";
         configForm.reset();
@@ -686,6 +691,15 @@
       }
 
       function editConfig(config) {
+        if (!config || !config.id) {
+          console.error("Invalid config for editing:", config);
+          alert("配置数据无效，无法编辑");
+          return;
+        }
+        if (editingConfig && !confirm("您正在创建新配置，确定要放弃创建并编辑现有配置吗？")) {
+          return;
+        }
+        console.log("Editing config:", config);
         editingConfig = config;
         modalTitle.textContent = "编辑 LLM 配置";
         document.getElementById("configName").value = config.name;
@@ -705,6 +719,8 @@
       }
 
       function saveConfig() {
+        console.log("Saving config, editingConfig:", editingConfig);
+
         var formData = {
           name: document.getElementById("configName").value.trim(),
           baseUrl: document.getElementById("configBaseUrl").value.trim(),
@@ -721,13 +737,15 @@
         }
 
         setStatus("保存中...", "info");
-        hideModal();
 
         var url = "/api/admin/llm-configs";
         var method = "POST";
         if (editingConfig) {
           url += "/" + editingConfig.id;
           method = "PUT";
+          console.log("Updating config with ID:", editingConfig.id);
+        } else {
+          console.log("Creating new config");
         }
 
         fetch(url, {
@@ -742,10 +760,12 @@
           .then(function () {
             setStatus("配置已保存", "ok");
             loadConfigs();
+            hideModal();
           })
           .catch(function (e) {
             console.error("Failed to save config:", e);
             setStatus("保存失败: " + e.message, "err");
+            hideModal();
           });
       }
 

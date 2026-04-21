@@ -10,15 +10,18 @@ import org.tenny.config.entity.LlmConfig;
 import org.tenny.config.service.LlmConfigService;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Bootstrap runner to initialize default LLM configuration in database.
- * Only runs if no active LLM configuration exists.
+ * Only creates default config if no configurations exist at all.
+ * If configs exist but none are active, activates the first one.
  */
 @Component
 public class BootstrapLlmConfigRunner implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(BootstrapLlmConfigRunner.class);
+    private static final String DEFAULT_CONFIG_NAME = "Default DeepSeek Configuration";
 
     private final LlmConfigService llmConfigService;
     private final Environment environment;
@@ -37,12 +40,45 @@ public class BootstrapLlmConfigRunner implements ApplicationRunner {
             return;
         } catch (RuntimeException e) {
             // No active config found, proceed with bootstrap
-            log.info("No active LLM configuration found, initializing default config");
+            log.info("No active LLM configuration found, checking for default config");
         }
 
+        // First, check if the default config name already exists
+        LlmConfig defaultConfig = llmConfigService.getConfigByName(DEFAULT_CONFIG_NAME);
+        if (defaultConfig != null) {
+            // Default config exists - activate it if not already active
+            if (!defaultConfig.getIsActive()) {
+                llmConfigService.setActiveConfig(defaultConfig.getId());
+                log.info("Activated existing default LLM configuration: {}", DEFAULT_CONFIG_NAME);
+            } else {
+                log.info("Default LLM configuration is already active");
+            }
+            return;
+        }
+
+        // No default config found - check if any configs exist at all
+        List<LlmConfig> allConfigs = llmConfigService.getAllConfigs();
+        
+        if (allConfigs.isEmpty()) {
+            // No configs at all - create default
+            createDefaultConfig();
+        } else {
+            // Configs exist but none with default name - activate the first one
+            log.info("Found {} existing LLM configuration(s), activating first config: {}", 
+                allConfigs.size(), allConfigs.get(0).getName());
+            try {
+                llmConfigService.setActiveConfig(allConfigs.get(0).getId());
+                log.info("Successfully activated existing LLM configuration: {}", allConfigs.get(0).getName());
+            } catch (Exception ex) {
+                log.error("Failed to activate existing configuration", ex);
+            }
+        }
+    }
+
+    private void createDefaultConfig() {
         // Create default config from environment/application.yml
         LlmConfig defaultConfig = new LlmConfig();
-        defaultConfig.setName("Default DeepSeek Configuration");
+        defaultConfig.setName(DEFAULT_CONFIG_NAME);
         defaultConfig.setBaseUrl(environment.getProperty("llm.base-url", "https://ark.cn-beijing.volces.com/api/v3"));
         defaultConfig.setApiKey(environment.getProperty("llm.api-key", ""));
         defaultConfig.setModel(environment.getProperty("llm.model", "deepseek-v3-2-251201"));
