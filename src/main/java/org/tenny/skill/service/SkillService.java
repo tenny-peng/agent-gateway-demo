@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.tenny.admin.dto.AdminSkillDto;
+import org.tenny.skill.dto.AdminSkillProjection;
 import org.tenny.skill.dto.SkillCreateRequest;
 import org.tenny.skill.dto.SkillUpdateRequest;
 import org.tenny.skill.dto.SkillVo;
@@ -11,7 +13,6 @@ import org.tenny.skill.entity.UserSkill;
 import org.tenny.skill.mapper.UserSkillMapper;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -152,5 +153,31 @@ public class SkillService {
 
         log.info("Toggled skill {} to {} for user {}", skillId, skill.getIsActive(), userId);
         return SkillVo.fromEntity(skill);
+    }
+
+    /**
+     * Get all skills across all users (admin only).
+     */
+    public List<AdminSkillDto> getAllSkillsForAllUsers() {
+        return userSkillMapper.selectAllWithUser().stream()
+                .map(this::convertToAdminSkillDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Convert projection to AdminSkillDto.
+     */
+    private AdminSkillDto convertToAdminSkillDto(AdminSkillProjection p) {
+        AdminSkillDto dto = new AdminSkillDto();
+        dto.setId(p.getId());
+        dto.setUserId(p.getUserId());
+        dto.setUsername(p.getUsername());
+        dto.setTitle(p.getTitle());
+        dto.setDescription(p.getDescription());
+        dto.setContent(p.getContent());
+        dto.setIsActive(p.getIsActive());
+        dto.setCreatedAt(p.getCreatedAt());
+        dto.setUpdatedAt(p.getUpdatedAt());
+        return dto;
     }
 }

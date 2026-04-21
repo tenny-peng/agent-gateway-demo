@@ -229,7 +229,6 @@
       <h2 class="nav-title">快速导航</h2>
       <div class="nav-links">
         <a href="/" class="nav-link">返回首页</a>
-        <a href="/skills.html" class="nav-link">技能管理</a>
         <a href="/llm-configs.html" class="nav-link">LLM 配置管理</a>
       </div>
     </nav>
@@ -250,6 +249,16 @@
             <div class="stat-value" id="msgCount">--</div>
             <div class="stat-label">消息总数</div>
           </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3 class="section-title">所有用户的技能</h3>
+        <div class="skills-grid" id="skillsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+          <!-- Skills will be loaded here -->
+        </div>
+        <div class="empty-state" id="skillsEmpty" style="display: none; text-align: center; padding: 2rem; color: var(--muted);">
+          <p>暂无可用的技能</p>
         </div>
       </section>
 
@@ -343,8 +352,87 @@
 
       btnClearCache.addEventListener("click", clearCache);
 
-      // 页面加载时获取统计数据
-      loadStats();
+       // 页面加载时获取统计数据
+       loadStats();
+
+      // 加载所有用户的技能（管理员专属）
+      function loadAllSkills() {
+        fetch("/api/admin/skills", { headers: authHeaders() })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function (skills) {
+            var grid = document.getElementById("skillsGrid");
+            var empty = document.getElementById("skillsEmpty");
+            if (!skills || !skills.length) {
+              grid.style.display = "none";
+              empty.style.display = "block";
+              return;
+            }
+            grid.style.display = "grid";
+            empty.style.display = "none";
+            grid.innerHTML = "";
+            skills.forEach(function (s) {
+              var card = createSkillCard(s);
+              grid.appendChild(card);
+            });
+          })
+          .catch(function (e) {
+            console.error("Failed to load skills:", e);
+          });
+      }
+
+      function createSkillCard(skill) {
+        var card = document.createElement("div");
+        card.className = "skill-card";
+
+        var header = document.createElement("div");
+        header.className = "skill-header";
+
+        var icon = document.createElement("div");
+        icon.className = "skill-icon";
+        icon.textContent = skill.isActive ? "⚡" : "🔘";
+
+        var title = document.createElement("div");
+        title.style.flex = "1";
+
+        var titleEl = document.createElement("h3");
+        titleEl.className = "skill-title";
+        titleEl.textContent = skill.title || "未命名技能";
+
+        var userEl = document.createElement("small");
+        userEl.style.color = "var(--muted)";
+        userEl.textContent = "用户: " + (skill.username || "未知");
+
+        title.appendChild(titleEl);
+        title.appendChild(userEl);
+
+        header.appendChild(icon);
+        header.appendChild(title);
+
+        var description = document.createElement("p");
+        description.className = "skill-description";
+        description.textContent = skill.description || "暂无描述";
+
+        var meta = document.createElement("div");
+        meta.className = "skill-meta";
+
+        var status = document.createElement("span");
+        status.className = "skill-status " + (skill.isActive ? "active" : "inactive");
+        status.textContent = skill.isActive ? "启用" : "禁用";
+
+        meta.appendChild(status);
+
+        card.appendChild(header);
+        card.appendChild(description);
+        card.appendChild(meta);
+
+        return card;
+      }
+
+      // 页面加载时获取技能数据
+      loadAllSkills();
 
       // 检查权限
       fetch("/api/auth/me", { headers: authHeaders() })
