@@ -1,4 +1,4 @@
-# agent-gateway-demo
+﻿# agent-gateway-demo
 
 练习用 **LLM 网关 / Agent**：Spring Boot 2 + Java 8，对接 **腾讯云混元 OpenAI 兼容 API**（可换其他兼容端点）。  
 公开仓库：**[tenny-peng/agent-gateway-demo](https://github.com/tenny-peng/agent-gateway-demo)**（若地址有变以你实际仓库为准）。
@@ -57,7 +57,7 @@ mvn spring-boot:run
 - **通用**：`/api/generic/chat`、`/api/generic/chat/stream`（需登录）
 - **物流 Agent**：`/api/logistics/agent/chat`、`/api/logistics/agent/chat/stream`（需登录）
 - **认证**：`/api/auth/register`、`/api/auth/login`、`/api/auth/me`、`/api/auth/logout`
-- **Skill**：`GET /api/skill`、`POST /api/skill`、`PUT /api/skill/{id}`、`DELETE /api/skill/{id}`、`POST /api/skill/{id}/toggle`（需登录）
+- **Skill**：`GET /api/skills`、`POST /api/skills`、`PUT /api/skills/{id}`、`DELETE /api/skills/{id}`、`POST /api/skills/{id}/toggle`（需登录）
 - **管理**：`/api/admin/stats`（`ADMIN`）
 - 全局：`IllegalStateException` → 400；`UnauthorizedException` → 401；`ForbiddenException` → 403（`ApiExceptionHandler`）
 

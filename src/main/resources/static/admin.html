@@ -6,163 +6,363 @@
   <title>管理后台 · agent-gateway-demo</title>
   <style>
     :root {
-      --bg: #0f1419;
-      --panel: #1a2332;
-      --border: #2d3a4d;
-      --text: #e6edf3;
-      --muted: #8b9cb3;
-      --accent: #58a6ff;
+      --bg: #fafbfc;
+      --panel: #ffffff;
+      --panel-2: #f8f9fa;
+      --border: #e1e5e9;
+      --text: #24292f;
+      --muted: #656d76;
+      --accent: #0969da;
+      --ok: #238636;
+      --err: #da3633;
+      --shadow: 0 1px 3px rgba(27, 31, 35, 0.12), 0 1px 2px rgba(27, 31, 35, 0.24);
     }
+
     * { box-sizing: border-box; }
+
     body {
-      font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
       margin: 0;
-      min-height: 100vh;
-      padding: 1.25rem;
-      max-width: 56rem;
-      margin-left: auto;
-      margin-right: auto;
+      padding: 2rem;
+      line-height: 1.5;
     }
-    h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.75rem; }
-    .hint { color: var(--muted); font-size: 0.85rem; margin-bottom: 1rem; }
-    a { color: var(--accent); }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
-    button {
-      cursor: pointer;
-      background: #212c3d;
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 6px;
-      padding: 0.45rem 0.75rem;
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
     }
-    button.primary {
-      background: #1f6feb;
-      border-color: #388bfd;
-      color: #fff;
-    }
-    .stat { font-size: 0.95rem; margin-bottom: 0.75rem; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
+
+    .header {
       background: var(--panel);
       border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow);
+    }
+
+    .title {
+      font-size: 2rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+      color: var(--text);
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 1.1rem;
+      margin: 0;
+    }
+
+    .nav {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow);
+    }
+
+    .nav-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0 0 1rem;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .nav-link {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background: var(--accent);
+      color: #ffffff;
+      text-decoration: none;
       border-radius: 8px;
-      overflow: hidden;
+      font-weight: 500;
+      transition: all 0.15s ease;
     }
-    th, td {
-      text-align: left;
-      padding: 0.5rem 0.65rem;
-      border-bottom: 1px solid var(--border);
+
+    .nav-link:hover {
+      background: #0858cc;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
     }
-    th { color: var(--muted); font-weight: 500; }
-    tr:last-child td { border-bottom: none; }
-    .err { color: #f85149; font-size: 0.9rem; margin-top: 0.5rem; }
+
+    .content {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: var(--shadow);
+    }
+
+    .section {
+      margin-bottom: 2rem;
+    }
+
+    .section:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 1rem;
+      color: var(--text);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .stat-card {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    button, .btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background: var(--accent);
+      color: #ffffff;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button:hover, .btn:hover {
+      background: #0858cc;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .status {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+
+    .status.ok {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+
+    .status.err {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    .status.info {
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+      }
+
+      .nav-links {
+        flex-direction: column;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>管理后台</h1>
-  <p class="hint">使用<strong>管理员</strong>账号登录后，沿用首页保存在浏览器中的登录令牌。数据来源：<code>GET /api/admin/stats</code></p>
-  <div class="toolbar">
-    <a href="/">← 返回聊天</a>
-    <button type="button" class="primary" id="btnLoad">刷新数据</button>
+  <div class="container">
+    <div class="header">
+      <h1 class="title">管理后台</h1>
+      <p class="subtitle">管理系统设置和用户数据</p>
+    </div>
+
+    <nav class="nav">
+      <h2 class="nav-title">快速导航</h2>
+      <div class="nav-links">
+        <a href="/" class="nav-link">返回首页</a>
+        <a href="/skills.html" class="nav-link">技能管理</a>
+      </div>
+    </nav>
+
+    <main class="content">
+      <section class="section">
+        <h3 class="section-title">系统概览</h3>
+        <div class="stats" id="stats">
+          <div class="stat-card">
+            <div class="stat-value" id="userCount">--</div>
+            <div class="stat-label">注册用户</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="convCount">--</div>
+            <div class="stat-label">会话数量</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="msgCount">--</div>
+            <div class="stat-label">消息总数</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3 class="section-title">系统操作</h3>
+        <div class="actions">
+          <button id="btnRefreshStats">刷新统计</button>
+          <button id="btnClearCache">清理缓存</button>
+        </div>
+        <div class="status" id="status" style="display: none;"></div>
+      </section>
+    </main>
   </div>
-  <div class="stat" id="totalUsers"></div>
-  <div id="err" class="err"></div>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>用户名</th>
-        <th>角色</th>
-        <th>注册时间</th>
-        <th>会话数</th>
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-  </table>
 
   <script>
     (function () {
       var TOKEN_KEY = "agentGatewayJwt";
+      var statsEl = document.getElementById("stats");
+      var statusEl = document.getElementById("status");
+      var btnRefreshStats = document.getElementById("btnRefreshStats");
+      var btnClearCache = document.getElementById("btnClearCache");
 
       function getToken() {
         return localStorage.getItem(TOKEN_KEY) || "";
       }
 
-      var totalEl = document.getElementById("totalUsers");
-      var tbody = document.getElementById("tbody");
-      var errEl = document.getElementById("err");
+      function authHeaders() {
+        var h = {};
+        var t = getToken();
+        if (t) h.Authorization = "Bearer " + t;
+        return h;
+      }
 
-      function setErr(t) {
-        errEl.textContent = t || "";
+      function setStatus(text, cls) {
+        statusEl.textContent = text || "";
+        statusEl.className = "status " + (cls || "info");
+        statusEl.style.display = text ? "block" : "none";
       }
 
       function loadStats() {
-        setErr("");
-        var t = getToken();
-        if (!t) {
-          setErr("未登录：请先在首页登录管理员账号。");
-          totalEl.textContent = "";
-          tbody.innerHTML = "";
-          return;
-        }
-        fetch("/api/admin/stats", {
-          headers: { Authorization: "Bearer " + t }
-        })
+        fetch("/api/admin/stats", { headers: authHeaders() })
           .then(function (res) {
-            if (res.status === 401) {
-              throw new Error("登录已失效，请回到首页重新登录");
-            }
-            if (res.status === 403) {
-              throw new Error("需要管理员角色（ADMIN）");
-            }
-            if (!res.ok) {
-              return res.text().then(function (x) {
-                throw new Error("HTTP " + res.status + ": " + x);
-              });
-            }
+            if (!res.ok) throw new Error("HTTP " + res.status);
             return res.json();
           })
           .then(function (data) {
-            totalEl.textContent = "用户总数：" + data.totalUsers;
-            tbody.innerHTML = "";
-            (data.users || []).forEach(function (u) {
-              var tr = document.createElement("tr");
-              tr.innerHTML =
-                "<td>" +
-                u.id +
-                "</td><td>" +
-                escapeHtml(u.username) +
-                "</td><td>" +
-                escapeHtml(u.role) +
-                "</td><td>" +
-                escapeHtml(u.createdAt || "") +
-                "</td><td>" +
-                u.sessionCount +
-                "</td>";
-              tbody.appendChild(tr);
-            });
+            document.getElementById("userCount").textContent = data.userCount || 0;
+            document.getElementById("convCount").textContent = data.conversationCount || 0;
+            document.getElementById("msgCount").textContent = data.messageCount || 0;
           })
           .catch(function (e) {
-            setErr(String(e.message || e));
-            totalEl.textContent = "";
-            tbody.innerHTML = "";
+            console.error("Failed to load stats:", e);
           });
       }
 
-      function escapeHtml(s) {
-        return String(s)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
+      function clearCache() {
+        setStatus("清理缓存中...", "info");
+        btnClearCache.disabled = true;
+
+        fetch("/api/admin/clear-cache", {
+          method: "POST",
+          headers: authHeaders()
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.text();
+          })
+          .then(function () {
+            setStatus("缓存清理完成", "ok");
+            setTimeout(function () {
+              setStatus("");
+            }, 3000);
+          })
+          .catch(function (e) {
+            setStatus("清理失败: " + e.message, "err");
+          })
+          .finally(function () {
+            btnClearCache.disabled = false;
+          });
       }
 
-      document.getElementById("btnLoad").addEventListener("click", loadStats);
+      btnRefreshStats.addEventListener("click", function () {
+        btnRefreshStats.disabled = true;
+        btnRefreshStats.textContent = "刷新中...";
+        loadStats();
+        setTimeout(function () {
+          btnRefreshStats.disabled = false;
+          btnRefreshStats.textContent = "刷新统计";
+        }, 1000);
+      });
+
+      btnClearCache.addEventListener("click", clearCache);
+
+      // 页面加载时获取统计数据
       loadStats();
+
+      // 检查权限
+      fetch("/api/auth/me", { headers: authHeaders() })
+        .then(function (res) {
+          if (!res.ok || res.status === 401) {
+            window.location.href = "/login.html?redirect=" + encodeURIComponent(window.location.pathname);
+            return;
+          }
+          return res.json();
+        })
+        .then(function (me) {
+          if (!me || me.role !== "ADMIN") {
+            window.location.href = "/";
+            return;
+          }
+        })
+        .catch(function () {
+          window.location.href = "/login.html";
+        });
     })();
   </script>
 </body>

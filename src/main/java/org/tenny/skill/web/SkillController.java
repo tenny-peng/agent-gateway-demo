@@ -23,7 +23,7 @@ import java.util.List;
  * REST controller for managing user skills.
  */
 @RestController
-@RequestMapping("/api/skill")
+@RequestMapping("/api/skills")
 @Validated
 public class SkillController {
 
