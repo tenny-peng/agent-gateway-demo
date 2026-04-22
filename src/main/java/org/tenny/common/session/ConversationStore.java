@@ -13,14 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Multi-turn message lists shared across app nodes via Redis.
- * <p>
- * {@code generic}: plain chat maps {@code Map<String,String>}.<br>
- * {@code logistics}: agent/tool maps {@code Map<String,Object>}.
- * </p>
- * If a key is missing (expired or cold start), services may rebuild from DB and call {@code put*} again.
- */
 @Component
 public class ConversationStore {
 
@@ -35,15 +27,20 @@ public class ConversationStore {
             };
 
     private final StringRedisTemplate stringRedisTemplate;
+    private final LocalConversationStore localStore;
     private final ObjectMapper objectMapper;
     private final ConversationRedisProperties conversationRedisProperties;
+    private final boolean redisEnabled;
 
     public ConversationStore(StringRedisTemplate stringRedisTemplate,
+                             LocalConversationStore localStore,
                              ObjectMapper objectMapper,
                              ConversationRedisProperties conversationRedisProperties) {
         this.stringRedisTemplate = stringRedisTemplate;
+        this.localStore = localStore;
         this.objectMapper = objectMapper;
         this.conversationRedisProperties = conversationRedisProperties;
+        this.redisEnabled = conversationRedisProperties.isEnabled();
     }
 
     public String newConversationId() {
@@ -54,6 +51,47 @@ public class ConversationStore {
         if (conversationId == null || conversationId.trim().isEmpty()) {
             return null;
         }
+        if (redisEnabled) {
+            return getChatMessagesRedis(conversationId);
+        } else {
+            return localStore.getChatMessages(conversationId);
+        }
+    }
+
+    public void putChatMessages(String conversationId, List<Map<String, String>> messages) {
+        if (conversationId == null || conversationId.trim().isEmpty()) {
+            return;
+        }
+        if (redisEnabled) {
+            putChatMessagesRedis(conversationId, messages);
+        } else {
+            localStore.putChatMessages(conversationId, messages);
+        }
+    }
+
+    public List<Map<String, Object>> getAgentMessages(String conversationId) {
+        if (conversationId == null || conversationId.trim().isEmpty()) {
+            return null;
+        }
+        if (redisEnabled) {
+            return getAgentMessagesRedis(conversationId);
+        } else {
+            return localStore.getAgentMessages(conversationId);
+        }
+    }
+
+    public void putAgentMessages(String conversationId, List<Map<String, Object>> messages) {
+        if (conversationId == null || conversationId.trim().isEmpty()) {
+            return;
+        }
+        if (redisEnabled) {
+            putAgentMessagesRedis(conversationId, messages);
+        } else {
+            localStore.putAgentMessages(conversationId, messages);
+        }
+    }
+
+    private List<Map<String, String>> getChatMessagesRedis(String conversationId) {
         String json = stringRedisTemplate.opsForValue().get(KEY_GENERIC + conversationId.trim());
         if (json == null || json.isEmpty()) {
             return null;
@@ -66,10 +104,7 @@ public class ConversationStore {
         }
     }
 
-    public void putChatMessages(String conversationId, List<Map<String, String>> messages) {
-        if (conversationId == null || conversationId.trim().isEmpty()) {
-            return;
-        }
+    private void putChatMessagesRedis(String conversationId, List<Map<String, String>> messages) {
         try {
             String json = objectMapper.writeValueAsString(copyStringMaps(messages));
             setWithOptionalTtl(KEY_GENERIC + conversationId.trim(), json);
@@ -78,10 +113,7 @@ public class ConversationStore {
         }
     }
 
-    public List<Map<String, Object>> getAgentMessages(String conversationId) {
-        if (conversationId == null || conversationId.trim().isEmpty()) {
-            return null;
-        }
+    private List<Map<String, Object>> getAgentMessagesRedis(String conversationId) {
         String json = stringRedisTemplate.opsForValue().get(KEY_LOGISTICS + conversationId.trim());
         if (json == null || json.isEmpty()) {
             return null;
@@ -94,10 +126,7 @@ public class ConversationStore {
         }
     }
 
-    public void putAgentMessages(String conversationId, List<Map<String, Object>> messages) {
-        if (conversationId == null || conversationId.trim().isEmpty()) {
-            return;
-        }
+    private void putAgentMessagesRedis(String conversationId, List<Map<String, Object>> messages) {
         try {
             String json = objectMapper.writeValueAsString(copyObjectMaps(messages));
             setWithOptionalTtl(KEY_LOGISTICS + conversationId.trim(), json);

@@ -2,95 +2,79 @@ package org.tenny.auth.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.config.AppSecurityProperties;
 
 import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 
 @Service
-public class SessionTokenService {
+public class LocalSessionTokenService {
 
-    private static final String KEY_PREFIX = "agw:auth:session:";
-
-    private final StringRedisTemplate stringRedisTemplate;
-    private final LocalSessionTokenService localService;
+    private final ConcurrentHashMap<String, SessionEntry> sessionStore = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
-    private final AppSecurityProperties appSecurityProperties;
-    private final boolean redisEnabled;
+    private final ScheduledExecutorService cleanupScheduler;
+    private final long ttlMillis;
 
-    public SessionTokenService(StringRedisTemplate stringRedisTemplate,
-                          LocalSessionTokenService localService,
-                          ObjectMapper objectMapper,
-                          AppSecurityProperties appSecurityProperties) {
-        this.stringRedisTemplate = stringRedisTemplate;
-        this.localService = localService;
+    public LocalSessionTokenService(ObjectMapper objectMapper, AppSecurityProperties appSecurityProperties) {
         this.objectMapper = objectMapper;
-        this.appSecurityProperties = appSecurityProperties;
-        this.redisEnabled = appSecurityProperties.isEnabled();
+        this.ttlMillis = Duration.ofHours(Math.max(1, appSecurityProperties.getSessionExpireHours())).toMillis();
+        this.cleanupScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "local-session-cleanup");
+            t.setDaemon(true);
+            return t;
+        });
+        this.cleanupScheduler.scheduleAtFixedRate(this::cleanupExpired, 1, 1, TimeUnit.HOURS);
     }
 
     public String createSession(long userId, String username, String role) {
-        if (redisEnabled) {
-            return createSessionRedis(userId, username, role);
-        } else {
-            return localService.createSession(userId, username, role);
-        }
-    }
-
-    public AuthPrincipal parseRequired(String authorizationHeader) {
-        if (redisEnabled) {
-            return parseRequiredRedis(authorizationHeader);
-        } else {
-            return localService.parseRequired(authorizationHeader);
-        }
-    }
-
-    public void revokeBearer(String authorizationHeader) {
-        if (redisEnabled) {
-            revokeBearerRedis(authorizationHeader);
-        } else {
-            localService.revokeBearer(authorizationHeader);
-        }
-    }
-
-    private String createSessionRedis(long userId, String username, String role) {
         String token = UUID.randomUUID().toString();
         SessionPayload payload = new SessionPayload(userId, username, role);
         try {
             String json = objectMapper.writeValueAsString(payload);
-            Duration ttl = Duration.ofHours(Math.max(1, appSecurityProperties.getSessionExpireHours()));
-            stringRedisTemplate.opsForValue().set(KEY_PREFIX + token, json, ttl);
+            sessionStore.put(token, new SessionEntry(json, System.currentTimeMillis() + ttlMillis));
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("session serialize failed", e);
         }
         return token;
     }
 
-    private AuthPrincipal parseRequiredRedis(String authorizationHeader) {
+    public AuthPrincipal parseRequired(String authorizationHeader) {
         String token = extractBearerToken(authorizationHeader);
         if (token == null || token.trim().isEmpty()) {
             throw new IllegalArgumentException("missing Authorization");
         }
-        String json = stringRedisTemplate.opsForValue().get(KEY_PREFIX + token.trim());
-        if (json == null || json.isEmpty()) {
+        SessionEntry entry = sessionStore.get(token.trim());
+        if (entry == null) {
+            throw new IllegalArgumentException("invalid or expired session");
+        }
+        if (entry.expiredAt < System.currentTimeMillis()) {
+            sessionStore.remove(token.trim());
             throw new IllegalArgumentException("invalid or expired session");
         }
         try {
-            SessionPayload payload = objectMapper.readValue(json, SessionPayload.class);
+            SessionPayload payload = objectMapper.readValue(entry.json, SessionPayload.class);
             return new AuthPrincipal(payload.getUserId(), payload.getUsername(), payload.getRole());
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("invalid session payload");
         }
     }
 
-    private void revokeBearerRedis(String authorizationHeader) {
+    public void revokeBearer(String authorizationHeader) {
         String token = extractBearerToken(authorizationHeader);
         if (token != null && !token.trim().isEmpty()) {
-            stringRedisTemplate.delete(KEY_PREFIX + token.trim());
+            sessionStore.remove(token.trim());
         }
+    }
+
+    private void cleanupExpired() {
+        long now = System.currentTimeMillis();
+        sessionStore.entrySet().removeIf(entry -> entry.getValue().expiredAt < now);
     }
 
     private static String extractBearerToken(String authorizationHeader) {
@@ -102,6 +86,16 @@ public class SessionTokenService {
             return null;
         }
         return value.substring(7).trim();
+    }
+
+    private static final class SessionEntry {
+        final String json;
+        final long expiredAt;
+
+        SessionEntry(String json, long expiredAt) {
+            this.json = json;
+            this.expiredAt = expiredAt;
+        }
     }
 
     private static final class SessionPayload {

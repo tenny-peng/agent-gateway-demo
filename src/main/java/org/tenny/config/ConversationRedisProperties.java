@@ -9,9 +9,22 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class ConversationRedisProperties {
 
     /**
+     * Enable Redis cache. If false, uses in-memory cache.
+     */
+    private boolean enabled = true;
+
+    /**
      * Hours to keep cached message lists in Redis. 0 means no TTL (persist until manual eviction / Redis policy).
      */
     private int redisTtlHours = 168;
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public int getRedisTtlHours() {
         return redisTtlHours;
