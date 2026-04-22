@@ -21,7 +21,7 @@ mybatis-plus:
 app:
   security:
     # Enable Redis cache for session. If false, uses in-memory cache.
-    enabled: true
+    enabled: false
     # Opaque UUID token TTL in Redis (hours)
     session-expire-hours: 168
   conversation:
