@@ -2,9 +2,10 @@ package org.tenny.common.session;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
-import org.tenny.config.ConversationRedisProperties;
+import org.tenny.config.AppProperties;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Component
+@RequiredArgsConstructor
 public class ConversationStore {
 
     private static final String KEY_GENERIC = "agw:conv:generic:";
@@ -27,21 +29,8 @@ public class ConversationStore {
             };
 
     private final StringRedisTemplate stringRedisTemplate;
-    private final LocalConversationStore localStore;
     private final ObjectMapper objectMapper;
-    private final ConversationRedisProperties conversationRedisProperties;
-    private final boolean redisEnabled;
-
-    public ConversationStore(StringRedisTemplate stringRedisTemplate,
-                             LocalConversationStore localStore,
-                             ObjectMapper objectMapper,
-                             ConversationRedisProperties conversationRedisProperties) {
-        this.stringRedisTemplate = stringRedisTemplate;
-        this.localStore = localStore;
-        this.objectMapper = objectMapper;
-        this.conversationRedisProperties = conversationRedisProperties;
-        this.redisEnabled = conversationRedisProperties.isEnabled();
-    }
+    private final AppProperties appProperties;
 
     public String newConversationId() {
         return UUID.randomUUID().toString();
@@ -51,44 +40,28 @@ public class ConversationStore {
         if (conversationId == null || conversationId.trim().isEmpty()) {
             return null;
         }
-        if (redisEnabled) {
-            return getChatMessagesRedis(conversationId);
-        } else {
-            return localStore.getChatMessages(conversationId);
-        }
+        return getChatMessagesRedis(conversationId);
     }
 
     public void putChatMessages(String conversationId, List<Map<String, String>> messages) {
         if (conversationId == null || conversationId.trim().isEmpty()) {
             return;
         }
-        if (redisEnabled) {
-            putChatMessagesRedis(conversationId, messages);
-        } else {
-            localStore.putChatMessages(conversationId, messages);
-        }
+        putChatMessagesRedis(conversationId, messages);
     }
 
     public List<Map<String, Object>> getAgentMessages(String conversationId) {
         if (conversationId == null || conversationId.trim().isEmpty()) {
             return null;
         }
-        if (redisEnabled) {
-            return getAgentMessagesRedis(conversationId);
-        } else {
-            return localStore.getAgentMessages(conversationId);
-        }
+        return getAgentMessagesRedis(conversationId);
     }
 
     public void putAgentMessages(String conversationId, List<Map<String, Object>> messages) {
         if (conversationId == null || conversationId.trim().isEmpty()) {
             return;
         }
-        if (redisEnabled) {
-            putAgentMessagesRedis(conversationId, messages);
-        } else {
-            localStore.putAgentMessages(conversationId, messages);
-        }
+        putAgentMessagesRedis(conversationId, messages);
     }
 
     private List<Map<String, String>> getChatMessagesRedis(String conversationId) {
@@ -136,7 +109,7 @@ public class ConversationStore {
     }
 
     private void setWithOptionalTtl(String key, String json) {
-        int hours = conversationRedisProperties.getRedisTtlHours();
+        int hours = appProperties.getConversation().getRedisTtlHours();
         if (hours > 0) {
             stringRedisTemplate.opsForValue().set(key, json, Duration.ofHours(hours));
         } else {

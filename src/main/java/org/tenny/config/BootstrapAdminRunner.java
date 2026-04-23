@@ -1,6 +1,7 @@
 package org.tenny.config;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -10,24 +11,17 @@ import org.tenny.auth.entity.AppUser;
 import org.tenny.auth.mapper.AppUserMapper;
 
 @Component
+@RequiredArgsConstructor
 public class BootstrapAdminRunner implements ApplicationRunner {
 
     private final AppUserMapper appUserMapper;
     private final PasswordEncoder passwordEncoder;
-    private final BootstrapAdminProperties bootstrapAdminProperties;
-
-    public BootstrapAdminRunner(AppUserMapper appUserMapper,
-                                PasswordEncoder passwordEncoder,
-                                BootstrapAdminProperties bootstrapAdminProperties) {
-        this.appUserMapper = appUserMapper;
-        this.passwordEncoder = passwordEncoder;
-        this.bootstrapAdminProperties = bootstrapAdminProperties;
-    }
+    private final AppProperties appProperties;
 
     @Override
     public void run(ApplicationArguments args) {
-        String username = bootstrapAdminProperties.getUsername();
-        String password = bootstrapAdminProperties.getPassword();
+        String username = appProperties.getBootstrapAdmin().getUsername();
+        String password = appProperties.getBootstrapAdmin().getPassword();
         if (!StringUtils.hasText(username) || !StringUtils.hasText(password)) {
             return;
         }
