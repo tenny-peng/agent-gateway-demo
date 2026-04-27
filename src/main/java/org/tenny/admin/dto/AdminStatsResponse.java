@@ -1,7 +1,12 @@
 package org.tenny.admin.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.List;
 
+@Setter
+@Getter
 public class AdminStatsResponse {
 
     private long totalUsers;
@@ -15,22 +20,8 @@ public class AdminStatsResponse {
         this.users = users;
     }
 
-    public long getTotalUsers() {
-        return totalUsers;
-    }
-
-    public void setTotalUsers(long totalUsers) {
-        this.totalUsers = totalUsers;
-    }
-
-    public List<UserWithSessions> getUsers() {
-        return users;
-    }
-
-    public void setUsers(List<UserWithSessions> users) {
-        this.users = users;
-    }
-
+    @Setter
+    @Getter
     public static final class UserWithSessions {
         private long id;
         private String username;
@@ -49,44 +40,5 @@ public class AdminStatsResponse {
             this.sessionCount = sessionCount;
         }
 
-        public long getId() {
-            return id;
-        }
-
-        public void setId(long id) {
-            this.id = id;
-        }
-
-        public String getUsername() {
-            return username;
-        }
-
-        public void setUsername(String username) {
-            this.username = username;
-        }
-
-        public String getRole() {
-            return role;
-        }
-
-        public void setRole(String role) {
-            this.role = role;
-        }
-
-        public String getCreatedAt() {
-            return createdAt;
-        }
-
-        public void setCreatedAt(String createdAt) {
-            this.createdAt = createdAt;
-        }
-
-        public long getSessionCount() {
-            return sessionCount;
-        }
-
-        public void setSessionCount(long sessionCount) {
-            this.sessionCount = sessionCount;
-        }
     }
 }

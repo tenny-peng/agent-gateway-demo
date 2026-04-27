@@ -9,6 +9,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "llm")
 public class LlmProperties {
 
+    private String name = "";
+
     private String baseUrl = "";
 
     private String apiKey = "";

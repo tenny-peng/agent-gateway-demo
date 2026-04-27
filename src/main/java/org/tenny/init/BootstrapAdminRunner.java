@@ -1,4 +1,4 @@
-package org.tenny.config;
+package org.tenny.init;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.tenny.auth.entity.AppUser;
 import org.tenny.auth.mapper.AppUserMapper;
+import org.tenny.config.AppProperties;
 
 @Component
 @RequiredArgsConstructor

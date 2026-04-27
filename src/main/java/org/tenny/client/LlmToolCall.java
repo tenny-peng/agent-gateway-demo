@@ -1,5 +1,8 @@
 package org.tenny.client;
 
+import lombok.Getter;
+
+@Getter
 public final class LlmToolCall {
 
     private final String id;
@@ -12,15 +15,4 @@ public final class LlmToolCall {
         this.arguments = arguments;
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getArguments() {
-        return arguments;
-    }
 }

@@ -1,4 +1,4 @@
-package org.tenny.client;
+package org.tenny.util;
 
 /**
  * Shared API key / URL normalization for LLM HTTP clients.

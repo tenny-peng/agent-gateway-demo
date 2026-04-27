@@ -1,7 +1,11 @@
 package org.tenny.config;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+@Setter
+@Getter
 @ConfigurationProperties(prefix = "rag")
 public class RagProperties {
 
@@ -18,35 +22,4 @@ public class RagProperties {
      */
     private String corpusPattern = "classpath:rag/*.md";
 
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    public int getTopK() {
-        return topK;
-    }
-
-    public void setTopK(int topK) {
-        this.topK = topK;
-    }
-
-    public int getMaxChunkChars() {
-        return maxChunkChars;
-    }
-
-    public void setMaxChunkChars(int maxChunkChars) {
-        this.maxChunkChars = maxChunkChars;
-    }
-
-    public String getCorpusPattern() {
-        return corpusPattern;
-    }
-
-    public void setCorpusPattern(String corpusPattern) {
-        this.corpusPattern = corpusPattern;
-    }
 }

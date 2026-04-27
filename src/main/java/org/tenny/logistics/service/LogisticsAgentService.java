@@ -1,47 +1,46 @@
 package org.tenny.logistics.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.tenny.auth.entity.AppUser;
 import org.tenny.auth.entity.UserConversationMessage;
 import org.tenny.auth.mapper.AppUserMapper;
 import org.tenny.auth.mapper.UserConversationMessageMapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.tenny.auth.model.SessionType;
 import org.tenny.auth.service.ConversationMessageService;
 import org.tenny.auth.service.ConversationTrackingService;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.tenny.client.LlmClient;
 import org.tenny.client.LlmCompletionResult;
 import org.tenny.client.LlmStreamClient;
 import org.tenny.client.LlmToolCall;
 import org.tenny.common.session.ConversationStore;
 import org.tenny.config.AgentProperties;
-import org.tenny.config.LlmConfigProvider;
 import org.tenny.dto.AgentChatResponse;
+import org.tenny.llmconfig.service.LlmConfigService;
 import org.tenny.logistics.tool.LogisticsWaybillToolDefinitions;
 import org.tenny.logistics.tool.WaybillQueryTool;
 import org.tenny.rag.RagService;
 import org.tenny.skill.service.SkillInjectService;
-import org.tenny.util.JsonLogging;
+import org.tenny.util.TruncateUtil;
 import org.tenny.web.ChatLimitExceededException;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Logistics business agent: {@code query_waybill} tool loop + optional RAG.
  */
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class LogisticsAgentService {
-
-    private static final Logger log = LoggerFactory.getLogger(LogisticsAgentService.class);
 
     private static final String AGENT_SYSTEM_BASE =
             "你是物流助手。用户询问运单、快递、物流状态时，必须调用 query_waybill 工具查询，"
@@ -49,7 +48,7 @@ public class LogisticsAgentService {
 
     private final LlmClient llmClient;
     private final LlmStreamClient llmStreamClient;
-    private final LlmConfigProvider llmConfigProvider;
+    private final LlmConfigService llmConfigService;
     private final AgentProperties agentProperties;
     private final WaybillQueryTool waybillQueryTool;
     private final ConversationStore conversationStore;
@@ -59,32 +58,6 @@ public class LogisticsAgentService {
     private final ConversationMessageService conversationMessageService;
     private final UserConversationMessageMapper userConversationMessageMapper;
     private final AppUserMapper appUserMapper;
-
-    public LogisticsAgentService(LlmClient llmClient,
-                                 LlmStreamClient llmStreamClient,
-                                 LlmConfigProvider llmConfigProvider,
-                                 AgentProperties agentProperties,
-                                 WaybillQueryTool waybillQueryTool,
-                                 ConversationStore conversationStore,
-                                 RagService ragService,
-                                 SkillInjectService skillInjectService,
-                                 ConversationTrackingService conversationTrackingService,
-                                 ConversationMessageService conversationMessageService,
-                                 UserConversationMessageMapper userConversationMessageMapper,
-                                 AppUserMapper appUserMapper) {
-        this.llmClient = llmClient;
-        this.llmStreamClient = llmStreamClient;
-        this.llmConfigProvider = llmConfigProvider;
-        this.agentProperties = agentProperties;
-        this.waybillQueryTool = waybillQueryTool;
-        this.conversationStore = conversationStore;
-        this.ragService = ragService;
-        this.skillInjectService = skillInjectService;
-        this.conversationTrackingService = conversationTrackingService;
-        this.conversationMessageService = conversationMessageService;
-        this.userConversationMessageMapper = userConversationMessageMapper;
-        this.appUserMapper = appUserMapper;
-    }
 
     private void checkChatLimit(long userId) {
         AppUser user = appUserMapper.selectById(userId);
@@ -121,7 +94,7 @@ public class LogisticsAgentService {
                 messages.add(result.getAssistantMessage());
                 for (LlmToolCall call : result.getToolCalls()) {
                     String payload = executeTool(call.getName(), call.getArguments());
-                    log.info("[LogisticsAgent] tool {} -> {}", call.getName(), JsonLogging.truncate(payload, 500));
+                    log.info("[LogisticsAgent] tool {} -> {}", call.getName(), TruncateUtil.truncate(payload, 500));
                     Map<String, Object> toolMsg = new HashMap<String, Object>();
                     toolMsg.put("role", "tool");
                     toolMsg.put("tool_call_id", call.getId());
@@ -134,7 +107,7 @@ public class LogisticsAgentService {
             }
 
             if (result.getContent() != null && !result.getContent().trim().isEmpty()) {
-                log.info("[LogisticsAgent] step {} -> text: {}", steps, JsonLogging.truncate(result.getContent(), 800));
+                log.info("[LogisticsAgent] step {} -> text: {}", steps, TruncateUtil.truncate(result.getContent(), 800));
                 Map<String, Object> assistant = new HashMap<String, Object>();
                 assistant.put("role", "assistant");
                 assistant.put("content", result.getContent());
@@ -149,7 +122,7 @@ public class LogisticsAgentService {
 
                 long latency = System.currentTimeMillis() - start;
                 log.info("[LogisticsAgent] done steps={}, latencyMs={}", steps, latency);
-                return new AgentChatResponse(result.getContent(), llmConfigProvider.getModel(), latency, steps, convId);
+                return new AgentChatResponse(result.getContent(), llmConfigService.getActiveConfig().getModel(), latency, steps, convId);
             }
 
             throw new IllegalStateException("LLM returned empty content and no tool_calls; raw=" + result.getAssistantMessage());
@@ -191,9 +164,9 @@ public class LogisticsAgentService {
                 messages.add(result.getAssistantMessage());
                 for (LlmToolCall call : result.getToolCalls()) {
                     log.info("[LogisticsAgentStream] tool_call name={} id={} arguments={}",
-                            call.getName(), call.getId(), JsonLogging.truncate(call.getArguments(), 400));
+                            call.getName(), call.getId(), TruncateUtil.truncate(call.getArguments(), 400));
                     String payload = executeTool(call.getName(), call.getArguments());
-                    log.info("[LogisticsAgentStream] tool_result name={} content={}", call.getName(), JsonLogging.truncate(payload, 2000));
+                    log.info("[LogisticsAgentStream] tool_result name={} content={}", call.getName(), TruncateUtil.truncate(payload, 2000));
                     Map<String, Object> toolMsg = new HashMap<String, Object>();
                     toolMsg.put("role", "tool");
                     toolMsg.put("tool_call_id", call.getId());
@@ -216,8 +189,8 @@ public class LogisticsAgentService {
                         userId, convId, SessionType.LOGISTICS, "assistant", result.getContent(), null, userMessage);
                 long latency = System.currentTimeMillis() - start;
                 log.info("[LogisticsAgentStream] done conversationId={} model={} steps={} latencyMs={} answerChars={}",
-                        convId, llmConfigProvider.getModel(), steps, latency, result.getContent().length());
-                log.debug("[LogisticsAgentStream] answer: {}", JsonLogging.truncate(result.getContent(), 4000));
+                        convId, llmConfigService.getActiveConfig().getModel(), steps, latency, result.getContent().length());
+                log.debug("[LogisticsAgentStream] answer: {}", TruncateUtil.truncate(result.getContent(), 4000));
                 emitter.complete();
                 return;
             }
@@ -276,7 +249,7 @@ public class LogisticsAgentService {
             if (sb.length() > 0) {
                 sb.append("; ");
             }
-            sb.append(c.getName()).append("(").append(JsonLogging.truncate(c.getArguments(), 200)).append(")");
+            sb.append(c.getName()).append("(").append(TruncateUtil.truncate(c.getArguments(), 200)).append(")");
         }
         return sb.toString();
     }

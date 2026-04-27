@@ -1,11 +1,12 @@
-package org.tenny.admin.web;
+package org.tenny.llmconfig.controller;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.tenny.auth.model.AuthPrincipal;
-import org.tenny.config.entity.LlmConfig;
-import org.tenny.config.service.LlmConfigService;
+import org.tenny.llmconfig.entity.LlmConfig;
+import org.tenny.llmconfig.service.LlmConfigService;
 import org.tenny.web.ForbiddenException;
 
 import javax.servlet.http.HttpServletRequest;
@@ -16,13 +17,10 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/admin/llm-configs")
+@RequiredArgsConstructor
 public class LlmConfigController {
 
     private final LlmConfigService llmConfigService;
-
-    public LlmConfigController(LlmConfigService llmConfigService) {
-        this.llmConfigService = llmConfigService;
-    }
 
     /**
      * Get all LLM configurations.
@@ -30,7 +28,7 @@ public class LlmConfigController {
     @GetMapping
     public List<LlmConfig> getAllConfigs(HttpServletRequest request) {
         checkAdminPermission(request);
-        return llmConfigService.getAllConfigs();
+        return llmConfigService.list();
     }
 
     /**
@@ -57,7 +55,7 @@ public class LlmConfigController {
     @PostMapping
     public LlmConfig createConfig(@RequestBody LlmConfig config, HttpServletRequest request) {
         checkAdminPermission(request);
-        return llmConfigService.createConfig(config);
+        return llmConfigService.add(config);
     }
 
     /**

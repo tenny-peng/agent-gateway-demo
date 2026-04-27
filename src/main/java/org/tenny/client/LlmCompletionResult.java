@@ -1,11 +1,14 @@
 package org.tenny.client;
 
+import lombok.Getter;
+
 import java.util.Collections;
 import java.util.List;
 
 /**
  * One non-streaming chat completion: either final text and/or tool_calls to execute.
  */
+@Getter
 public final class LlmCompletionResult {
 
     private final String content;
@@ -21,19 +24,8 @@ public final class LlmCompletionResult {
         this.assistantMessage = assistantMessage;
     }
 
-    public String getContent() {
-        return content;
-    }
-
-    public List<LlmToolCall> getToolCalls() {
-        return toolCalls;
-    }
-
     public boolean hasToolCalls() {
         return !toolCalls.isEmpty();
     }
 
-    public java.util.Map<String, Object> getAssistantMessage() {
-        return assistantMessage;
-    }
 }

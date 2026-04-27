@@ -31,6 +31,7 @@ app:
     password: ${ADMIN_BOOTSTRAP_PASSWORD:}
 
 llm:
+  name: default
   base-url: https://ark.cn-beijing.volces.com/api/v3
   api-key: ${API_KEY:}
   model: deepseek-v3-2-251201

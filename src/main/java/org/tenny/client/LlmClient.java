@@ -3,7 +3,7 @@ package org.tenny.client;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Qualifier;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -11,7 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
-import org.tenny.config.LlmConfigProvider;
+import org.tenny.llmconfig.entity.LlmConfig;
+import org.tenny.llmconfig.service.LlmConfigService;
+import org.tenny.util.LlmKeyUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,19 +21,12 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+@RequiredArgsConstructor
 public class LlmClient {
 
     private final RestTemplate restTemplate;
-    private final LlmConfigProvider llmConfigProvider;
+    private final LlmConfigService llmConfigService;
     private final ObjectMapper objectMapper;
-
-    public LlmClient(@Qualifier("llmRestTemplate") RestTemplate restTemplate,
-                     LlmConfigProvider llmConfigProvider,
-                     ObjectMapper objectMapper) {
-        this.restTemplate = restTemplate;
-        this.llmConfigProvider = llmConfigProvider;
-        this.objectMapper = objectMapper;
-    }
 
     /**
      * Simple one-shot chat (no tools). Fails if the model returns tool_calls.
@@ -56,14 +51,15 @@ public class LlmClient {
      */
     public LlmCompletionResult chatCompletions(List<Map<String, Object>> messages,
                                                List<Map<String, Object>> tools) {
-        String apiKey = LlmKeyUtil.normalizeApiKey(llmConfigProvider.getApiKey());
-        if (apiKey == null || apiKey.trim().isEmpty()) {
+        LlmConfig activeConfig = llmConfigService.getActiveConfig();
+        String apiKey = LlmKeyUtil.normalizeApiKey(activeConfig.getApiKey());
+        if (apiKey.trim().isEmpty()) {
             throw new IllegalStateException("Missing API key: configure LLM config in database or set environment variable API_KEY");
         }
-        String url = LlmKeyUtil.trimTrailingSlash(llmConfigProvider.getBaseUrl()) + "/chat/completions";
+        String url = LlmKeyUtil.trimTrailingSlash(activeConfig.getBaseUrl()) + "/chat/completions";
 
         Map<String, Object> body = new HashMap<String, Object>();
-        body.put("model", llmConfigProvider.getModel());
+        body.put("model", activeConfig.getModel());
         body.put("messages", messages);
         body.put("stream", Boolean.FALSE);
         if (tools != null && !tools.isEmpty()) {
@@ -81,7 +77,7 @@ public class LlmClient {
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
             JsonNode root = objectMapper.readTree(response.getBody());
             JsonNode choices = root.path("choices");
-            if (!choices.isArray() || choices.size() == 0) {
+            if (!choices.isArray() || choices.isEmpty()) {
                 throw new IllegalStateException("LLM response has no choices: " + response.getBody());
             }
             JsonNode message = choices.get(0).path("message");

@@ -1,8 +1,8 @@
-package org.tenny.config.mapper;
+package org.tenny.llmconfig.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Select;
-import org.tenny.config.entity.LlmConfig;
+import org.tenny.llmconfig.entity.LlmConfig;
 
 /**
  * Mapper for LlmConfig entity.

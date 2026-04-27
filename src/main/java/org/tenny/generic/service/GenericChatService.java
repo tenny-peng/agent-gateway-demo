@@ -1,19 +1,20 @@
 package org.tenny.generic.service;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.tenny.auth.model.SessionType;
 import org.tenny.auth.entity.AppUser;
 import org.tenny.auth.entity.UserConversationMessage;
 import org.tenny.auth.mapper.AppUserMapper;
 import org.tenny.auth.mapper.UserConversationMessageMapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import org.tenny.auth.model.SessionType;
 import org.tenny.auth.service.ConversationMessageService;
 import org.tenny.auth.service.ConversationTrackingService;
 import org.tenny.client.LlmClient;
 import org.tenny.client.LlmStreamClient;
 import org.tenny.common.session.ConversationStore;
-import org.tenny.config.LlmConfigProvider;
 import org.tenny.dto.ChatResponse;
+import org.tenny.llmconfig.service.LlmConfigService;
 import org.tenny.rag.RagService;
 import org.tenny.skill.service.SkillInjectService;
 import org.tenny.web.ChatLimitExceededException;
@@ -28,13 +29,14 @@ import java.util.Map;
  * Generic chat (no tools): multi-turn plain LLM completion + optional RAG on system.
  */
 @Service
+@RequiredArgsConstructor
 public class GenericChatService {
 
     private static final String CHAT_SYSTEM_BASE = "You are a helpful assistant.";
 
     private final LlmClient llmClient;
     private final LlmStreamClient llmStreamClient;
-    private final LlmConfigProvider llmConfigProvider;
+    private final LlmConfigService llmConfigService;
     private final ConversationStore conversationStore;
     private final RagService ragService;
     private final SkillInjectService skillInjectService;
@@ -42,28 +44,6 @@ public class GenericChatService {
     private final ConversationMessageService conversationMessageService;
     private final UserConversationMessageMapper userConversationMessageMapper;
     private final AppUserMapper appUserMapper;
-
-    public GenericChatService(LlmClient llmClient,
-                              LlmStreamClient llmStreamClient,
-                              LlmConfigProvider llmConfigProvider,
-                              ConversationStore conversationStore,
-                              RagService ragService,
-                              SkillInjectService skillInjectService,
-                              ConversationTrackingService conversationTrackingService,
-                              ConversationMessageService conversationMessageService,
-                              UserConversationMessageMapper userConversationMessageMapper,
-                              AppUserMapper appUserMapper) {
-        this.llmClient = llmClient;
-        this.llmStreamClient = llmStreamClient;
-        this.llmConfigProvider = llmConfigProvider;
-        this.conversationStore = conversationStore;
-        this.ragService = ragService;
-        this.skillInjectService = skillInjectService;
-        this.conversationTrackingService = conversationTrackingService;
-        this.conversationMessageService = conversationMessageService;
-        this.userConversationMessageMapper = userConversationMessageMapper;
-        this.appUserMapper = appUserMapper;
-    }
 
     private void checkChatLimit(long userId) {
         AppUser user = appUserMapper.selectById(userId);
@@ -115,7 +95,7 @@ public class GenericChatService {
         conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "user", userMessage, null, userMessage);
         conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "assistant", answer, null, userMessage);
 
-        return new ChatResponse(answer, llmConfigProvider.getModel(), latency, id);
+        return new ChatResponse(answer, llmConfigService.getActiveConfig().getModel(), latency, id);
     }
 
     /**
@@ -164,6 +144,7 @@ public class GenericChatService {
                 ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "assistant", acc.toString(), null, ctx.getUserMessage());
     }
 
+    @Getter
     public static final class StreamChatContext {
         private final String conversationId;
         private final List<Map<String, String>> messages;
@@ -177,21 +158,6 @@ public class GenericChatService {
             this.userMessage = userMessage;
         }
 
-        public String getConversationId() {
-            return conversationId;
-        }
-
-        public List<Map<String, String>> getMessages() {
-            return messages;
-        }
-
-        public long getUserId() {
-            return userId;
-        }
-
-        public String getUserMessage() {
-            return userMessage;
-        }
     }
 
     private static Map<String, String> chatSystem() {
