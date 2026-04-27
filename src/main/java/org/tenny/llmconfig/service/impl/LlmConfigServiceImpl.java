@@ -4,13 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.tenny.llmconfig.entity.LlmConfig;
 import org.tenny.llmconfig.mapper.LlmConfigMapper;
 import org.tenny.llmconfig.service.LlmConfigService;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
 
 @Service
 public class LlmConfigServiceImpl extends ServiceImpl<LlmConfigMapper, LlmConfig> implements LlmConfigService {
@@ -48,9 +47,16 @@ public class LlmConfigServiceImpl extends ServiceImpl<LlmConfigMapper, LlmConfig
     }
 
     @Override
+    @Transactional
     public LlmConfig setActiveConfig(Long id) {
-        new LambdaUpdateWrapper<LlmConfig>().ne(LlmConfig::getId, id).set(LlmConfig::getIsActive, false);
-        new LambdaUpdateWrapper<LlmConfig>().eq(LlmConfig::getId, id).set(LlmConfig::getIsActive, true);
+        LambdaUpdateWrapper<LlmConfig> otherWrapper = new LambdaUpdateWrapper<>();
+        otherWrapper.ne(LlmConfig::getId, id)
+                .set(LlmConfig::getIsActive, false);
+        update(otherWrapper);
+        LambdaUpdateWrapper<LlmConfig> targetWrapper = new LambdaUpdateWrapper<>();
+        targetWrapper.eq(LlmConfig::getId, id)
+                .set(LlmConfig::getIsActive, true);
+        update(targetWrapper);
         return getById(id);
     }
 

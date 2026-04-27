@@ -1,13 +1,11 @@
 package org.tenny.llmconfig.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.tenny.auth.model.AuthPrincipal;
+import org.tenny.exception.ForbiddenException;
 import org.tenny.llmconfig.entity.LlmConfig;
 import org.tenny.llmconfig.service.LlmConfigService;
-import org.tenny.exception.ForbiddenException;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -83,17 +81,6 @@ public class LlmConfigController {
     public void deleteConfig(@PathVariable Long id, HttpServletRequest request) {
         checkAdminPermission(request);
         llmConfigService.deleteConfig(id);
-    }
-
-    /**
-     * Refresh LLM configuration cache.
-     * This forces reloading of the active configuration from database.
-     */
-    @PostMapping("/refresh")
-    @CacheEvict(value = "llmConfig", allEntries = true)
-    public ResponseEntity<String> refreshConfig(HttpServletRequest request) {
-        checkAdminPermission(request);
-        return ResponseEntity.ok("LLM configuration cache refreshed successfully");
     }
 
     private void checkAdminPermission(HttpServletRequest request) {
