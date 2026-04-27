@@ -7,16 +7,16 @@
 
 ## 功能概览
 
-| 能力 | 说明 |
-|------|------|
-| **通用对话** | 无工具，多轮会话 + 流式 SSE；`POST /api/generic/chat`、`/api/generic/chat/stream` |
-| **物流业务 Agent** | `query_waybill` 工具循环 + 多轮 + 流式；`POST /api/logistics/agent/chat`、`/chat/stream` |
-| **RAG（最小实现）** | classpath Markdown 分块、本地关键词/字元检索、`top-k` 注入 system；落库前剥离检索段 |
-| **Skill（自定义规则）** | 用户上传 Markdown 技能文档，聊天时根据问题自动匹配并注入到 System Prompt；`/skills.html` 管理页面 |
-| **评测** | `eval/cases.json` + `scripts/eval-run.ps1` 冒烟（需本机已启动应用并配置 Key） |
+| 能力 | 说明                                                                                         |
+|------|--------------------------------------------------------------------------------------------|
+| **通用对话** | 无工具，多轮会话 + 流式 SSE；`POST /api/generic/chat`、`/api/generic/chat/stream`                      |
+| **物流业务 Agent** | `query_waybill` 工具循环 + 多轮 + 流式；`POST /api/logistics/agent/chat`、`/chat/stream`             |
+| **RAG（最小实现）** | classpath Markdown 分块、本地关键词/字元检索、`top-k` 注入 system；落库前剥离检索段                                |
+| **Skill（自定义规则）** | 用户上传 Markdown 技能文档，聊天时根据问题自动匹配并注入到 System Prompt；`/skills.html` 管理页面                       |
+| **评测** | `eval/cases.json` + `scripts/eval-run.ps1` 冒烟（需本机已启动应用并配置 Key）                             |
 | **静态页** | `http://localhost:8080/` 简易流式测试（通用 / 物流两个 Tab）；流式结束后用 **marked + DOMPurify** 渲染 Markdown（粗体、列表等） |
 | **登录 / 注册** | opaque **UUID** 存 **Redis**（会话），用户与统计在 **MySQL**（**MyBatis-Plus**）；前端 `localStorage` 仅存令牌字符串 |
-| **管理后台** | `/admin.html`，（需 `ADMIN` 角色） |
+| **管理后台** | `/admin.html`，（需 `ADMIN` 角色）                                                               |
 
 ---
 
@@ -24,7 +24,7 @@
 
 - JDK 8、Spring Boot 2.7、Jackson、`SseEmitter`  
 - **MyBatis-Plus** + **MySQL 8**；**Spring Data Redis**（Lettuce），会话键 `agw:auth:session:{token}`  
-- 配置：`src/main/resources/application.yml`；混元 Key 建议环境变量 `HUNYUAN_API_KEY`  
+- 配置：`src/main/resources/application.yml`；Key 建议环境变量 `API_KEY`  
 - 运行前：执行 **`src/main/resources/schema-mysql.sql`** 建库建表，并启动本机 **Redis**（默认 `127.0.0.1:6379`）
 
 ```bash
@@ -34,11 +34,14 @@ mvn spring-boot:run
 浏览器打开 **http://localhost:8080/**；评测见下文「评测脚本」。
 
 ### 静态页面说明
-
-- 首页保留核心聊天交互：入口切换（通用 / 物流）、输入、发送、新会话。  
-- 登录与注册已拆为独立页面：`/login.html`、`/register.html`。  
-- `conversationId`会在内部保存并随下一轮请求透传，实现多轮会话。  
-- 回复在整段流结束后统一进行 Markdown 渲染（`marked + DOMPurify`）。
+- `/register.html`，注册页面
+- `/login.html`，登录页面。  
+- `/index.html`，首页，核心聊天交互：入口切换（通用 / 物流）、输入、发送、新会话。普通用户登录后自动进入。
+- `/skill.html`，用户技能管理页面。普通用户可管理自己的skill。
+- `/admin.html`，后台管理页面，管理员登录后自动进入。
+- `/admin-llm-configs.html`，大模型配置页面，仅管理员可见
+- `/admin-skills.html`，用户技能管理页面，仅管理员可见
+- `/admin-users.html`，用户管理页面，仅管理员可见
 
 ---
 
@@ -92,7 +95,7 @@ org.tenny
 
 ## 评测脚本
 
-1. 启动应用并配置 `HUNYUAN_API_KEY`  
+1. 启动应用并配置 `API_KEY`  
 2. 项目根目录执行：
 
 ```powershell
