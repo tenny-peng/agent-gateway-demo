@@ -1,32 +1,24 @@
 package org.tenny.rag;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
 import org.tenny.config.RagProperties;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Minimal RAG: load markdown from classpath, chunk by paragraph, score by character / 2-gram overlap with the query.
  * Injects into system prompt behind {@link #RAG_BEGIN_MARKER}; use {@link #stripRagFromContent(String)} before persisting.
  */
 @Service
+@Slf4j
 public class RagService {
-
-    private static final Logger log = LoggerFactory.getLogger(RagService.class);
 
     /** Not present in base prompts; used to trim augmented system before saving sessions. */
     public static final String RAG_BEGIN_MARKER = "\n\n<<<RAG_CONTEXT>>>\n";

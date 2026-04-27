@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.llmconfig.entity.LlmConfig;
 import org.tenny.llmconfig.service.LlmConfigService;
-import org.tenny.web.ForbiddenException;
+import org.tenny.exception.ForbiddenException;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;

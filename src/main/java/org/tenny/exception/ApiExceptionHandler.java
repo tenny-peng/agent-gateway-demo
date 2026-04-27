@@ -1,4 +1,4 @@
-package org.tenny.web;
+package org.tenny.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

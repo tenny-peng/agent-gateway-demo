@@ -25,7 +25,7 @@ import org.tenny.logistics.tool.WaybillQueryTool;
 import org.tenny.rag.RagService;
 import org.tenny.skill.service.SkillInjectService;
 import org.tenny.util.TruncateUtil;
-import org.tenny.web.ChatLimitExceededException;
+import org.tenny.exception.ChatLimitExceededException;
 
 import java.io.IOException;
 import java.util.ArrayList;

@@ -17,6 +17,11 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+logging:
+  level:
+    # 将你的 mapper 包路径改为 DEBUG（根据你的实际包路径修改）
+    org.tenny: debug
 
 app:
   security:

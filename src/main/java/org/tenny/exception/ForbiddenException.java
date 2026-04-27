@@ -1,4 +1,4 @@
-package org.tenny.web;
+package org.tenny.exception;
 
 public class ForbiddenException extends RuntimeException {
 

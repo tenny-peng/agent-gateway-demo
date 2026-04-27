@@ -14,10 +14,9 @@ import org.tenny.client.LlmClient;
 import org.tenny.client.LlmStreamClient;
 import org.tenny.common.session.ConversationStore;
 import org.tenny.dto.ChatResponse;
+import org.tenny.exception.ChatLimitExceededException;
 import org.tenny.llmconfig.service.LlmConfigService;
-import org.tenny.rag.RagService;
 import org.tenny.skill.service.SkillInjectService;
-import org.tenny.web.ChatLimitExceededException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,7 +37,6 @@ public class GenericChatService {
     private final LlmStreamClient llmStreamClient;
     private final LlmConfigService llmConfigService;
     private final ConversationStore conversationStore;
-    private final RagService ragService;
     private final SkillInjectService skillInjectService;
     private final ConversationTrackingService conversationTrackingService;
     private final ConversationMessageService conversationMessageService;
@@ -81,7 +79,6 @@ public class GenericChatService {
             messages.add(userMessage(userMessage));
         }
 
-        ragService.augmentChatSystem(messages, userMessage);
         skillInjectService.augmentChatSystem(messages, userMessage, userId);
 
         long start = System.currentTimeMillis();
@@ -90,7 +87,6 @@ public class GenericChatService {
 
         List<Map<String, String>> toSave = new ArrayList<Map<String, String>>(messages);
         toSave.add(assistantMessage(answer));
-        ragService.stripRagFromChatMessages(toSave);
         conversationStore.putChatMessages(id, toSave);
         conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "user", userMessage, null, userMessage);
         conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "assistant", answer, null, userMessage);
@@ -119,7 +115,6 @@ public class GenericChatService {
             messages.addAll(previous);
             messages.add(userMessage(userMessage));
         }
-        ragService.augmentChatSystem(messages, userMessage);
         skillInjectService.augmentChatSystem(messages, userMessage, userId);
         return new StreamChatContext(id, messages, userId, userMessage);
     }
@@ -135,7 +130,6 @@ public class GenericChatService {
         });
         List<Map<String, String>> next = new ArrayList<Map<String, String>>(ctx.getMessages());
         next.add(assistantMessage(acc.toString()));
-        ragService.stripRagFromChatMessages(next);
         skillInjectService.stripSkillsFromChatMessages(next);
         conversationStore.putChatMessages(ctx.getConversationId(), next);
         conversationMessageService.appendMessage(

@@ -13,9 +13,7 @@ import org.tenny.admin.dto.AdminStatsResponse;
 import org.tenny.auth.mapper.AppUserMapper;
 import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.auth.model.UserSessionStatsVo;
-import org.tenny.web.ForbiddenException;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
+import org.tenny.exception.ForbiddenException;
 
 import javax.servlet.http.HttpServletRequest;
 import java.time.format.DateTimeFormatter;

@@ -30,7 +30,7 @@ public class AdminSkillController {
     public List<AdminSkillDto> listAllSkills(HttpServletRequest request) {
         AuthPrincipal p = (AuthPrincipal) request.getAttribute(AuthPrincipal.REQUEST_ATTR);
         if (p == null || !p.isAdmin()) {
-            throw new org.tenny.web.ForbiddenException("admin only");
+            throw new org.tenny.exception.ForbiddenException("admin only");
         }
         return skillService.getAllSkillsForAllUsers();
     }
