@@ -8,7 +8,7 @@ import lombok.Setter;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.tenny.auth.model.AuthPrincipal;
-import org.tenny.config.AppProperties;
+import org.tenny.common.config.AppProperties;
 
 import java.time.Duration;
 import java.util.UUID;

@@ -12,8 +12,8 @@ import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.auth.model.SessionType;
 import org.tenny.conversation.service.ConversationDeleteService;
 import org.tenny.conversation.service.ConversationQueryService;
-import org.tenny.dto.ConversationListResponse;
-import org.tenny.dto.ConversationMessagesResponse;
+import org.tenny.conversation.dto.ConversationListResponse;
+import org.tenny.conversation.dto.ConversationMessagesResponse;
 
 import javax.servlet.http.HttpServletRequest;
 

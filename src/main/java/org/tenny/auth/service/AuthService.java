@@ -9,8 +9,8 @@ import org.tenny.auth.dto.LoginRequest;
 import org.tenny.auth.dto.RegisterRequest;
 import org.tenny.user.entity.AppUser;
 import org.tenny.user.mapper.AppUserMapper;
-import org.tenny.config.AppProperties;
-import org.tenny.exception.UnauthorizedException;
+import org.tenny.common.config.AppProperties;
+import org.tenny.common.exception.UnauthorizedException;
 
 @Service
 @RequiredArgsConstructor

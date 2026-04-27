@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.tenny.auth.model.AuthPrincipal;
-import org.tenny.dto.ChatRequest;
-import org.tenny.dto.ChatResponse;
+import org.tenny.generic.dto.ChatRequest;
+import org.tenny.generic.dto.ChatResponse;
 import org.tenny.generic.service.GenericChatService;
 
 import javax.servlet.http.HttpServletRequest;

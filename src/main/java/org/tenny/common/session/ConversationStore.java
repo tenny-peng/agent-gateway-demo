@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
-import org.tenny.config.AppProperties;
+import org.tenny.common.config.AppProperties;
 
 import java.time.Duration;
 import java.util.ArrayList;

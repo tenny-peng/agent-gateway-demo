@@ -3,7 +3,7 @@ package org.tenny.llmconfig.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.tenny.auth.model.AuthPrincipal;
-import org.tenny.exception.ForbiddenException;
+import org.tenny.common.exception.ForbiddenException;
 import org.tenny.llmconfig.entity.LlmConfig;
 import org.tenny.llmconfig.service.LlmConfigService;
 

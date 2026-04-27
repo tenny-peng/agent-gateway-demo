@@ -8,7 +8,7 @@ import org.tenny.user.entity.AppUser;
 import org.tenny.user.mapper.AppUserMapper;
 import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.user.dto.UserSessionStatsVo;
-import org.tenny.exception.ForbiddenException;
+import org.tenny.common.exception.ForbiddenException;
 
 import javax.servlet.http.HttpServletRequest;
 import java.time.format.DateTimeFormatter;

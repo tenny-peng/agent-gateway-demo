@@ -10,11 +10,11 @@ import org.tenny.conversation.mapper.UserConversationMessageMapper;
 import org.tenny.auth.model.SessionType;
 import org.tenny.conversation.service.ConversationMessageService;
 import org.tenny.conversation.service.ConversationTrackingService;
-import org.tenny.client.LlmClient;
-import org.tenny.client.LlmStreamClient;
+import org.tenny.common.helper.llmclient.LlmClient;
+import org.tenny.common.helper.llmclient.LlmStreamClient;
 import org.tenny.common.session.ConversationStore;
-import org.tenny.dto.ChatResponse;
-import org.tenny.exception.ChatLimitExceededException;
+import org.tenny.generic.dto.ChatResponse;
+import org.tenny.common.exception.ChatLimitExceededException;
 import org.tenny.llmconfig.service.LlmConfigService;
 import org.tenny.skill.service.SkillInjectService;
 
