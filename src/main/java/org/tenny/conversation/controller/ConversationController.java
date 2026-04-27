@@ -1,5 +1,6 @@
 package org.tenny.conversation.controller;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -20,17 +21,11 @@ import javax.servlet.http.HttpServletRequest;
 @RestController
 @RequestMapping("/api/chat")
 @Validated
+@RequiredArgsConstructor
 public class ConversationController {
 
     private final ConversationQueryService conversationQueryService;
     private final ConversationDeleteService conversationDeleteService;
-
-    public ConversationController(
-            ConversationQueryService conversationQueryService,
-            ConversationDeleteService conversationDeleteService) {
-        this.conversationQueryService = conversationQueryService;
-        this.conversationDeleteService = conversationDeleteService;
-    }
 
     @GetMapping("/conversations")
     public ConversationListResponse listConversations(
