@@ -240,31 +240,42 @@
         return raw;
       }
 
-      function gotoAfterLogin() {
-        window.location.href = getRedirect();
-      }
+       function gotoAfterLogin(role) {
+         if (role === "ADMIN") {
+           window.location.href = "/admin.html";
+         } else {
+           window.location.href = "/";
+         }
+       }
 
       function getToken() {
         return localStorage.getItem(TOKEN_KEY) || "";
       }
 
-      function initSessionGuard() {
-        var t = getToken();
-        if (!t) {
-          return;
-        }
-        fetch("/api/auth/me", { headers: { "Authorization": "Bearer " + t } })
-          .then(function (res) {
-            if (!res.ok) {
-              localStorage.removeItem(TOKEN_KEY);
-              return;
-            }
-            gotoAfterLogin();
-          })
-          .catch(function () {
-            localStorage.removeItem(TOKEN_KEY);
-          });
-      }
+       function initSessionGuard() {
+         var t = getToken();
+         if (!t) {
+           return;
+         }
+         fetch("/api/auth/me", { headers: { "Authorization": "Bearer " + t } })
+           .then(function (res) {
+             if (!res.ok) {
+               localStorage.removeItem(TOKEN_KEY);
+               return;
+             }
+             return res.json();
+           })
+           .then(function (me) {
+             if (me && me.role) {
+               gotoAfterLogin(me.role);
+             } else {
+               window.location.href = "/";
+             }
+           })
+           .catch(function () {
+             localStorage.removeItem(TOKEN_KEY);
+           });
+       }
 
       btnLogin.addEventListener("click", function () {
         var u = (userEl.value || "").trim();
@@ -293,7 +304,22 @@
               localStorage.setItem(TOKEN_KEY, data.token);
             }
             setStatus("登录成功，正在跳转...", "ok");
-            setTimeout(gotoAfterLogin, 220);
+            // 获取用户信息以决定跳转目标
+            fetch("/api/auth/me", { headers: { "Authorization": "Bearer " + (data.token || "") } })
+              .then(function (res) {
+                if (!res.ok) throw new Error("获取用户信息失败");
+                return res.json();
+              })
+              .then(function (me) {
+                setTimeout(function () {
+                  gotoAfterLogin(me.role);
+                }, 220);
+              })
+              .catch(function () {
+                setTimeout(function () {
+                  window.location.href = "/";
+                }, 220);
+              });
           })
           .catch(function (e) {
             setStatus(String(e.message || e), "err");

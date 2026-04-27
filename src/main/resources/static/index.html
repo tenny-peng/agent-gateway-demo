@@ -58,7 +58,105 @@
       box-shadow: var(--shadow);
     }
 
-    .auth-actions { display: flex; align-items: center; gap: 0.75rem; }
+    .auth-left {
+      display: flex;
+      align-items: center;
+    }
+
+    .app-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .user-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .user-dropdown-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid var(--border);
+      transition: all 0.15s ease;
+      font-size: 0.9rem;
+    }
+
+    .user-dropdown-toggle:hover {
+      background: var(--panel-2);
+      box-shadow: var(--shadow);
+    }
+
+    .user-dropdown-toggle .arrow {
+      font-size: 0.75rem;
+      color: var(--muted);
+      transition: transform 0.2s ease;
+    }
+
+    .user-dropdown.open .arrow {
+      transform: rotate(180deg);
+    }
+
+    .user-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 0.5rem);
+      right: 0;
+      min-width: 200px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow-lg);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px);
+      transition: all 0.15s ease;
+      z-index: 100;
+    }
+
+    .user-dropdown.open .user-dropdown-menu {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .user-dropdown-item {
+      display: block;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 0.9rem;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      text-decoration: none;
+    }
+
+    .user-dropdown-item:hover {
+      background: var(--panel-2);
+    }
+
+    .user-dropdown-item:first-child {
+      border-radius: 8px 8px 0 0;
+    }
+
+    .user-dropdown-item:last-child {
+      border-radius: 0 0 8px 8px;
+    }
+
+    .user-dropdown-header {
+      padding: 0.75rem 1rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
     #authInfo { color: var(--muted); font-weight: 500; }
 
     a, button {
@@ -116,21 +214,28 @@
       font-weight: 600;
     }
 
-    .side-head {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-    }
+     .side-head {
+       position: sticky;
+       top: 0;
+       z-index: 2;
+       display: flex;
+       flex-direction: column;
+       gap: 0.75rem;
+     }
 
-    .tabs {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 0.75rem;
-      background: var(--panel);
-      border-radius: 8px;
-      padding: 0.25rem;
-      border: 1px solid var(--border);
-    }
+     .tabs {
+       display: flex;
+       gap: 0.5rem;
+       background: var(--panel);
+       border-radius: 8px;
+       padding: 0.25rem;
+       border: 1px solid var(--border);
+     }
+
+     #newConv {
+       width: 100%;
+       box-sizing: border-box;
+     }
 
     .tab {
       flex: 1;
@@ -490,18 +595,28 @@
 <body>
   <div class="page">
     <div class="auth-panel">
-      <div class="auth-logged-out" id="authLoggedOut">
-        <div class="auth-actions">
-          <a href="/login.html" class="primary">登录</a>
-          <a href="/register.html">注册</a>
-        </div>
+      <div class="auth-left">
+        <div class="app-name">AI Agent Demo</div>
       </div>
-      <div class="auth-logged-in hidden" id="authLoggedIn">
-        <div class="auth-actions">
-          <span id="authInfo"></span>
-          <a href="/skills.html" id="linkSkills">技能</a>
-          <a href="/admin.html" id="linkAdmin" class="hidden">管理后台</a>
-          <button type="button" id="btnLogout">退出</button>
+      <div class="auth-actions-right">
+        <div class="auth-logged-out" id="authLoggedOut">
+          <div class="auth-actions">
+            <a href="/login.html" class="primary">登录</a>
+            <a href="/register.html">注册</a>
+          </div>
+        </div>
+        <div class="auth-logged-in hidden" id="authLoggedIn">
+          <div class="user-dropdown" id="userDropdown">
+            <button class="user-dropdown-toggle" type="button">
+              <span id="authInfo"></span>
+              <span class="arrow">▼</span>
+            </button>
+            <div class="user-dropdown-menu">
+              <a href="/skills.html" class="user-dropdown-item" id="linkSkills">技能</a>
+              <div style="border-top: 1px solid var(--border);"></div>
+              <button class="user-dropdown-item" type="button" id="btnLogout">退出</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -562,11 +677,11 @@
       var convList = document.getElementById("convList");
       var messagesDom = document.getElementById("messages");
       var chatTitle = document.getElementById("chatTitle");
-      var btnLogout = document.getElementById("btnLogout");
-      var authLoggedOut = document.getElementById("authLoggedOut");
-      var authLoggedIn = document.getElementById("authLoggedIn");
-      var authInfo = document.getElementById("authInfo");
-      var linkAdmin = document.getElementById("linkAdmin");
+       var btnLogout = document.getElementById("btnLogout");
+       var authLoggedOut = document.getElementById("authLoggedOut");
+       var authLoggedIn = document.getElementById("authLoggedIn");
+       var authInfo = document.getElementById("authInfo");
+       var userDropdown = document.getElementById("userDropdown");
 
       function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
       function authHeadersJson() {
@@ -588,16 +703,15 @@
         status.textContent = text || "";
         status.className = "status" + (cls ? " " + cls : "");
       }
-      function showLoggedOut() {
-        authLoggedOut.classList.remove("hidden");
-        authLoggedIn.classList.add("hidden");
-        linkAdmin.classList.add("hidden");
-      }
+       function showLoggedOut() {
+         authLoggedOut.classList.remove("hidden");
+         authLoggedIn.classList.add("hidden");
+         if (userDropdown) userDropdown.classList.remove("open");
+       }
       function showLoggedIn(username, role) {
         authLoggedOut.classList.add("hidden");
         authLoggedIn.classList.remove("hidden");
         authInfo.textContent = username + " · " + role;
-        linkAdmin.classList.toggle("hidden", role !== "ADMIN");
       }
       /** 流式预览用：仅用�?parse，不写入真实 content，减轻未闭合 ``` 导致的整段崩�?*/
       function padStreamingMarkdown(s) {
@@ -874,47 +988,71 @@
           msg.focus();
         }
       }
-      function applyMode(nextMode) {
-        mode = nextMode;
-        msg.placeholder = placeholders[mode];
-        tabs.forEach(function (t) {
-          t.classList.toggle("active", t.getAttribute("data-mode") === mode);
-        });
-        var active = convListByMode[mode].find(function (x) {
-          return x.conversationId === convByMode[mode];
-        });
-        chatTitle.textContent = active ? (active.title || "新会话") : "新会话";
-        renderConversationList();
-        renderMessages();
-        loadConversations().catch(function (e) {
-          setStatus(String(e.message || e), "err");
-        });
-      }
-      function refreshSession() {
-        var t = getToken();
-        if (!t) {
-          showLoggedOut();
-          gotoLogin();
-          return Promise.resolve(false);
-        }
-        return fetch("/api/auth/me", { headers: authHeaders() }).then(function (res) {
-          if (!res.ok) {
-            localStorage.removeItem(TOKEN_KEY);
-            showLoggedOut();
-            gotoLogin();
-            return false;
-          }
-          return res.json().then(function (me) {
-            showLoggedIn(me.username, me.role);
-            return true;
-          });
-        }).catch(function () {
-          localStorage.removeItem(TOKEN_KEY);
-          showLoggedOut();
-          gotoLogin();
-          return false;
-        });
-      }
+       function applyMode(nextMode) {
+         mode = nextMode;
+         msg.placeholder = placeholders[mode];
+         tabs.forEach(function (t) {
+           t.classList.toggle("active", t.getAttribute("data-mode") === mode);
+         });
+         var active = convListByMode[mode].find(function (x) {
+           return x.conversationId === convByMode[mode];
+         });
+         chatTitle.textContent = active ? (active.title || "新会话") : "新会话";
+         renderConversationList();
+         renderMessages();
+         loadConversations().catch(function (e) {
+           setStatus(String(e.message || e), "err");
+         });
+       }
+
+       // 下拉菜单交互
+       function initUserDropdown() {
+         if (!userDropdown) return;
+         var toggle = userDropdown.querySelector(".user-dropdown-toggle");
+         var menu = userDropdown.querySelector(".user-dropdown-menu");
+
+         toggle.addEventListener("click", function (e) {
+           e.stopPropagation();
+           userDropdown.classList.toggle("open");
+         });
+
+         document.addEventListener("click", function (e) {
+           if (userDropdown.classList.contains("open") && !userDropdown.contains(e.target)) {
+             userDropdown.classList.remove("open");
+           }
+         });
+
+         document.addEventListener("keydown", function (e) {
+           if (e.key === "Escape" && userDropdown.classList.contains("open")) {
+             userDropdown.classList.remove("open");
+           }
+         });
+       }
+       function refreshSession() {
+         var t = getToken();
+         if (!t) {
+           showLoggedOut();
+           gotoLogin();
+           return Promise.resolve(false);
+         }
+         return fetch("/api/auth/me", { headers: authHeaders() }).then(function (res) {
+           if (!res.ok) {
+             localStorage.removeItem(TOKEN_KEY);
+             showLoggedOut();
+             gotoLogin();
+             return false;
+           }
+           return res.json().then(function (me) {
+             showLoggedIn(me.username, me.role);
+             return true;
+           });
+         }).catch(function () {
+           localStorage.removeItem(TOKEN_KEY);
+           showLoggedOut();
+           gotoLogin();
+           return false;
+         });
+       }
 
        // 自定义确认弹�?
        function showConfirmModal(options) {
@@ -1041,10 +1179,13 @@
         fetch("/api/auth/logout", { method: "POST", headers: authHeadersJson() }).then(finish, finish);
       });
 
-      msg.placeholder = placeholders[mode];
-      refreshSession().then(function (ok) {
-        if (ok) applyMode("generic");
-      });
+       msg.placeholder = placeholders[mode];
+       refreshSession().then(function (ok) {
+         if (ok) {
+           applyMode("generic");
+           initUserDropdown();
+         }
+       });
     })();
   </script>
 </body>

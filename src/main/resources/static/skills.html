@@ -6,490 +6,220 @@
   <title>技能管理 · agent-gateway-demo</title>
   <style>
     :root {
-      --bg: #fafbfc;
-      --panel: #ffffff;
+      --bg: #ffffff;
       --panel-2: #f8f9fa;
       --border: #e1e5e9;
       --text: #24292f;
       --muted: #656d76;
       --accent: #0969da;
-      --ok: #238636;
-      --err: #da3633;
-      --warn: #bf8700;
-      --shadow: 0 1px 3px rgba(27, 31, 35, 0.12), 0 1px 2px rgba(27, 31, 35, 0.24);
     }
 
     * { box-sizing: border-box; }
 
     body {
+      margin: 0;
+      padding: 1rem;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      margin: 0;
-      padding: 2rem;
-      line-height: 1.5;
     }
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .header {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 2rem;
-      margin-bottom: 2rem;
-      box-shadow: var(--shadow);
-    }
-
-    .title {
-      font-size: 2rem;
-      font-weight: 600;
-      margin: 0 0 0.5rem;
-      color: var(--text);
-    }
-
-    .subtitle {
-      color: var(--muted);
-      font-size: 1.1rem;
-      margin: 0;
-    }
-
-    .nav {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 2rem;
-      box-shadow: var(--shadow);
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .nav-link {
-      display: inline-block;
-      padding: 0.75rem 1.5rem;
-      background: var(--accent);
-      color: #ffffff;
-      text-decoration: none;
-      border-radius: 8px;
-      font-weight: 500;
-      transition: all 0.15s ease;
-    }
-
-    .nav-link:hover {
-      background: #0858cc;
-      transform: translateY(-1px);
-      box-shadow: var(--shadow);
-    }
-
-    .content {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 2rem;
-      box-shadow: var(--shadow);
-    }
-
-    .skills-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 1.5rem;
-    }
-
-    .skill-card {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.5rem;
-      background: var(--panel);
-      transition: all 0.15s ease;
-      box-shadow: 0 1px 2px rgba(27, 31, 35, 0.06);
-    }
-
-    .skill-card:hover {
-      border-color: var(--accent);
-      box-shadow: var(--shadow);
-      transform: translateY(-2px);
-    }
-
-    .skill-header {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
-    }
-
-    .skill-icon {
-      font-size: 1.5rem;
-      width: 2.5rem;
-      height: 2.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--accent);
-      color: #ffffff;
-      border-radius: 8px;
-      flex-shrink: 0;
-    }
-
-    .skill-title {
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin: 0;
-      color: var(--text);
-    }
-
-    .skill-description {
-      color: var(--muted);
-      font-size: 0.9rem;
-      line-height: 1.5;
-      margin: 0 0 1rem;
-    }
-
-    .skill-meta {
+    .toolbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-top: 1rem;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
     }
 
-    .skill-actions {
+    .title {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .toolbar-actions {
       display: flex;
       gap: 0.5rem;
-      justify-content: flex-end;
+      flex-wrap: wrap;
     }
 
-    .skill-actions button {
-      padding: 0.25rem 0.5rem;
-      font-size: 0.75rem;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: 500;
-      transition: all 0.15s ease;
-    }
-
-    .btn-edit {
-      background: var(--accent);
-      color: white;
-    }
-
-    .btn-edit:hover {
-      background: #0858cc;
-    }
-
-    .btn-delete {
-      background: var(--err);
-      color: white;
-    }
-
-    .btn-delete:hover {
-      background: #d1242f;
-    }
-
-    .btn-toggle {
-      background: var(--ok);
-      color: white;
-    }
-
-    .btn-toggle:hover {
-      background: #1e7e34;
-    }
-
-    .btn-toggle.inactive {
-      background: var(--warn);
-    }
-
-    .btn-toggle.inactive:hover {
-      background: #a08b2c;
-    }
-
-    .skill-status {
-      padding: 0.25rem 0.5rem;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 500;
-    }
-
-    .skill-status.active {
-      background: #dcfce7;
-      color: #166534;
-    }
-
-    .skill-status.inactive {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 3rem;
-      color: var(--muted);
-    }
-
-    .empty-icon {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-      display: block;
-    }
-
-    .empty-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin: 0 0 0.5rem;
-      color: var(--text);
-    }
-
-    .empty-description {
-      font-size: 0.9rem;
-      margin: 0;
-    }
-
-    .actions {
-      margin-top: 2rem;
-      padding-top: 2rem;
-      border-top: 1px solid var(--border);
-      display: flex;
-      gap: 1rem;
-      justify-content: center;
-    }
-
-    button, .btn {
-      display: inline-block;
-      padding: 0.75rem 1.5rem;
-      background: var(--accent);
-      color: #ffffff;
-      border: 1px solid var(--accent);
+    .btn {
+      border: 1px solid var(--border);
       border-radius: 8px;
-      text-decoration: none;
-      font-weight: 500;
+      padding: 0.5rem 0.8rem;
+      background: #fff;
+      color: var(--text);
       cursor: pointer;
-      transition: all 0.15s ease;
     }
 
-    button:hover, .btn:hover {
-      background: #0858cc;
-      transform: translateY(-1px);
-      box-shadow: var(--shadow);
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
     }
 
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    thead th {
+      background: var(--panel-2);
+      font-weight: 600;
+    }
+
+    .inline-actions {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
     }
 
     .status {
-      margin-top: 1rem;
-      padding: 0.75rem;
-      border-radius: 6px;
-      font-weight: 500;
-      text-align: center;
+      margin-top: 0.75rem;
+      padding: 0.6rem 0.7rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
     }
 
     .status.ok {
+      display: block;
       background: #dcfce7;
       color: #166534;
       border: 1px solid #bbf7d0;
     }
 
     .status.err {
+      display: block;
       background: #fef2f2;
       color: #991b1b;
       border: 1px solid #fecaca;
     }
 
     .status.info {
+      display: block;
       background: #eff6ff;
       color: #1e40af;
       border: 1px solid #bfdbfe;
     }
 
-    /* Modal styles */
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 1.2rem;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      margin-top: 0.8rem;
+      display: none;
+    }
+
     .modal {
       display: none;
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
       z-index: 1000;
-      align-items: center;
-      justify-content: center;
     }
 
     .modal.show {
       display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .modal-content {
-      background: var(--panel);
-      border-radius: 12px;
-      padding: 2rem;
-      width: 90%;
-      max-width: 500px;
-      box-shadow: var(--shadow);
-      max-height: 80vh;
-      overflow-y: auto;
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
+      width: 92%;
+      max-width: 620px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
     }
 
     .modal-title {
-      font-size: 1.25rem;
+      margin: 0 0 0.8rem;
+      font-size: 1rem;
       font-weight: 600;
-      margin: 0;
-      color: var(--text);
     }
 
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 1.5rem;
-      cursor: pointer;
-      color: var(--muted);
-      padding: 0.25rem;
-      border-radius: 4px;
-      transition: all 0.15s ease;
-    }
-
-    .modal-close:hover {
-      background: var(--border);
-      color: var(--text);
-    }
-
-    .form-group {
-      margin-bottom: 1rem;
-    }
-
-    .form-label {
-      display: block;
-      font-weight: 500;
-      margin-bottom: 0.5rem;
-      color: var(--text);
-    }
-
+    .form-group { margin-bottom: 0.7rem; }
+    .form-label { display: block; margin-bottom: 0.35rem; font-size: 0.9rem; }
     .form-input {
       width: 100%;
-      padding: 0.75rem;
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 8px;
+      padding: 0.5rem 0.6rem;
       font-size: 0.9rem;
-      transition: border-color 0.15s ease;
     }
-
-    .form-input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
-    }
-
     .form-textarea {
       resize: vertical;
-      min-height: 100px;
+      min-height: 120px;
     }
-
     .modal-actions {
       display: flex;
-      gap: 1rem;
       justify-content: flex-end;
-      margin-top: 2rem;
-    }
-
-    @media (max-width: 768px) {
-      body {
-        padding: 1rem;
-      }
-
-      .skills-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .nav-links {
-        flex-direction: column;
-      }
-
-      .actions {
-        flex-direction: column;
-      }
-
-      .modal-content {
-        width: 95%;
-        padding: 1.5rem;
-        margin: 1rem;
-      }
+      gap: 0.5rem;
+      margin-top: 0.8rem;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-          <h1 class="title">技能管理</h1>
-          <p class="subtitle">管理系统中的 AI 技能和功能模块</p>
-        </div>
-        <button id="btnAddSkill" class="btn">新增技能</button>
-      </div>
+  <div class="toolbar">
+    <h1 class="title">技能管理</h1>
+    <div class="toolbar-actions">
+      <button id="btnAddSkill" class="btn primary" type="button">新增技能</button>
+      <button id="btnRefreshSkills" class="btn" type="button">刷新列表</button>
     </div>
+  </div>
 
-    <main class="content">
-      <div id="skillsContainer" class="skills-grid">
-        <!-- Skills will be loaded here -->
-      </div>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>名称</th>
+        <th>描述</th>
+        <th>状态</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="skillsTableBody"></tbody>
+  </table>
 
-      <div id="emptyState" class="empty-state" style="display: none;">
-        <span class="empty-icon">🔧</span>
-        <h3 class="empty-title">暂无可用的技能</h3>
-        <p class="empty-description">系统正在初始化技能模块，请稍后再试。</p>
-      </div>
+  <div id="emptyState" class="empty">暂无技能</div>
+  <div id="status" class="status"></div>
 
-      <div class="actions">
-        <button id="btnRefreshSkills">刷新技能列表</button>
-      </div>
-
-      <div class="status" id="status" style="display: none;"></div>
-    </main>
-
-    <!-- Modal for creating/editing skills -->
-    <div id="skillModal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="modalTitle" class="modal-title">新增技能</h2>
-          <button id="modalClose" class="modal-close">&times;</button>
+  <div id="skillModal" class="modal">
+    <div class="modal-content">
+      <h2 id="modalTitle" class="modal-title">新增技能</h2>
+      <form id="skillForm">
+        <div class="form-group">
+          <label for="skillTitle" class="form-label">技能名称 *</label>
+          <input type="text" id="skillTitle" class="form-input" required />
         </div>
-        <form id="skillForm">
-          <div class="form-group">
-            <label for="skillTitle" class="form-label">技能名称</label>
-            <input type="text" id="skillTitle" class="form-input" placeholder="输入技能名称" required>
-          </div>
-          <div class="form-group">
-            <label for="skillDescription" class="form-label">技能描述</label>
-            <input type="text" id="skillDescription" class="form-input" placeholder="简要描述技能功能" required>
-          </div>
-          <div class="form-group">
-            <label for="skillContent" class="form-label">技能内容</label>
-            <textarea id="skillContent" class="form-input form-textarea" placeholder="输入技能的具体内容和指令" required></textarea>
-          </div>
-          <div class="modal-actions">
-            <button type="button" id="btnCancel" class="btn" style="background: var(--muted); border-color: var(--muted);">取消</button>
-            <button type="submit" id="btnSave" class="btn">保存</button>
-          </div>
-        </form>
+        <div class="form-group">
+          <label for="skillDescription" class="form-label">技能描述 *</label>
+          <input type="text" id="skillDescription" class="form-input" required />
+        </div>
+        <div class="form-group">
+          <label for="skillContent" class="form-label">技能内容 *</label>
+          <textarea id="skillContent" class="form-input form-textarea" required></textarea>
+        </div>
+      </form>
+      <div class="modal-actions">
+        <button type="button" id="btnCancel" class="btn">取消</button>
+        <button type="button" id="btnSave" class="btn primary">保存</button>
       </div>
     </div>
   </div>
@@ -497,313 +227,200 @@
   <script>
     (function () {
       var TOKEN_KEY = "agentGatewayJwt";
-      var skillsContainer = document.getElementById("skillsContainer");
+      var skillsTableBody = document.getElementById("skillsTableBody");
       var emptyState = document.getElementById("emptyState");
       var statusEl = document.getElementById("status");
       var btnRefreshSkills = document.getElementById("btnRefreshSkills");
-
-      function getToken() {
-        return localStorage.getItem(TOKEN_KEY) || "";
-      }
-
-      function authHeaders() {
-        var h = {};
-        var t = getToken();
-        if (t) h.Authorization = "Bearer " + t;
-        return h;
-      }
-
-      function setStatus(text, cls) {
-        statusEl.textContent = text || "";
-        statusEl.className = "status " + (cls || "info");
-        statusEl.style.display = text ? "block" : "none";
-      }
-
-      function createSkillCard(skill) {
-        var card = document.createElement("div");
-        card.className = "skill-card";
-
-        var header = document.createElement("div");
-        header.className = "skill-header";
-
-        var icon = document.createElement("div");
-        icon.className = "skill-icon";
-        icon.textContent = skill.icon || "🤖";
-
-        var title = document.createElement("h3");
-        title.className = "skill-title";
-        title.textContent = skill.title || "未命名技能";
-
-        header.appendChild(icon);
-        header.appendChild(title);
-
-        var description = document.createElement("p");
-        description.className = "skill-description";
-        description.textContent = skill.description || "暂无描述";
-
-        var meta = document.createElement("div");
-        meta.className = "skill-meta";
-
-        var status = document.createElement("span");
-        status.className = "skill-status " + (skill.isActive ? "active" : "inactive");
-        status.textContent = skill.isActive ? "启用" : "禁用";
-
-        var actions = document.createElement("div");
-        actions.className = "skill-actions";
-
-        var btnEdit = document.createElement("button");
-        btnEdit.className = "btn-edit";
-        btnEdit.textContent = "编辑";
-        btnEdit.onclick = function() { editSkill(skill); };
-
-        var btnToggle = document.createElement("button");
-        btnToggle.className = "btn-toggle" + (skill.isActive ? "" : " inactive");
-        btnToggle.textContent = skill.isActive ? "禁用" : "启用";
-        btnToggle.onclick = function() { toggleSkill(skill.id); };
-
-        var btnDelete = document.createElement("button");
-        btnDelete.className = "btn-delete";
-        btnDelete.textContent = "删除";
-        btnDelete.onclick = function() { deleteSkill(skill.id); };
-
-        actions.appendChild(btnEdit);
-        actions.appendChild(btnToggle);
-        actions.appendChild(btnDelete);
-
-        meta.appendChild(status);
-        meta.appendChild(actions);
-
-        card.appendChild(header);
-        card.appendChild(description);
-        card.appendChild(meta);
-
-        return card;
-      }
-
-      function loadSkills() {
-        setStatus("加载中...", "info");
-
-        fetch("/api/skills/all", { headers: authHeaders() })
-          .then(function (res) {
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            return res.json();
-          })
-          .then(function (data) {
-            skillsContainer.innerHTML = "";
-            setStatus("");
-
-            if (!data || !data.length) {
-              emptyState.style.display = "block";
-              skillsContainer.style.display = "none";
-              return;
-            }
-
-            emptyState.style.display = "none";
-            skillsContainer.style.display = "grid";
-
-            data.forEach(function (skill) {
-              var card = createSkillCard(skill);
-              skillsContainer.appendChild(card);
-            });
-          })
-          .catch(function (e) {
-            console.error("Failed to load skills:", e);
-            setStatus("加载失败: " + e.message, "err");
-            emptyState.style.display = "block";
-            skillsContainer.style.display = "none";
-          });
-      }
-
-      btnRefreshSkills.addEventListener("click", function () {
-        btnRefreshSkills.disabled = true;
-        btnRefreshSkills.textContent = "刷新中...";
-        loadSkills();
-        setTimeout(function () {
-          btnRefreshSkills.disabled = false;
-          btnRefreshSkills.textContent = "刷新技能列表";
-        }, 1000);
-      });
-
-      // 页面加载时获取技能数据
-      loadSkills();
-
-      // Modal handling
+      var btnAddSkill = document.getElementById("btnAddSkill");
       var skillModal = document.getElementById("skillModal");
       var modalTitle = document.getElementById("modalTitle");
       var skillForm = document.getElementById("skillForm");
       var skillTitle = document.getElementById("skillTitle");
       var skillDescription = document.getElementById("skillDescription");
       var skillContent = document.getElementById("skillContent");
-      var btnAddSkill = document.getElementById("btnAddSkill");
       var btnCancel = document.getElementById("btnCancel");
       var btnSave = document.getElementById("btnSave");
-      var modalClose = document.getElementById("modalClose");
 
       var currentEditingSkill = null;
 
-      // Modal events
-      btnAddSkill.addEventListener("click", function() {
-        openModal();
-      });
+      function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
+      function authHeaders() {
+        var h = {};
+        var t = getToken();
+        if (t) h.Authorization = "Bearer " + t;
+        return h;
+      }
+      function setStatus(text, cls) {
+        statusEl.textContent = text || "";
+        statusEl.className = "status" + (cls ? " " + cls : "");
+      }
 
-      btnCancel.addEventListener("click", function() {
-        closeModal();
-      });
-
-      modalClose.addEventListener("click", function() {
-        closeModal();
-      });
-
-      // Close modal when clicking outside
-      skillModal.addEventListener("click", function(e) {
-        if (e.target === skillModal) {
-          closeModal();
+      function renderSkills(data) {
+        skillsTableBody.innerHTML = "";
+        if (!data || !data.length) {
+          emptyState.style.display = "block";
+          return;
         }
-      });
+        emptyState.style.display = "none";
+        data.forEach(function (skill) {
+          var row = document.createElement("tr");
+          row.innerHTML =
+            "<td>" + (skill.id || "") + "</td>" +
+            "<td>" + (skill.title || "") + "</td>" +
+            "<td>" + (skill.description || "") + "</td>" +
+            "<td>" + (skill.isActive ? "启用" : "禁用") + "</td>" +
+            "<td><div class='inline-actions'>" +
+              "<button class='btn' data-action='edit' data-id='" + skill.id + "'>编辑</button>" +
+              "<button class='btn' data-action='toggle' data-id='" + skill.id + "'>" + (skill.isActive ? "禁用" : "启用") + "</button>" +
+              "<button class='btn' data-action='delete' data-id='" + skill.id + "'>删除</button>" +
+            "</div></td>";
+          row._skill = skill;
+          skillsTableBody.appendChild(row);
+        });
+      }
 
-      // Form submission
-      skillForm.addEventListener("submit", function(e) {
-        e.preventDefault();
-        saveSkill();
-      });
+      function loadSkills() {
+        setStatus("加载中...", "info");
+        fetch("/api/skills/all", { headers: authHeaders() })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function (data) {
+            renderSkills(data);
+            setStatus("", "");
+          })
+          .catch(function (e) {
+            setStatus("加载失败: " + e.message, "err");
+          });
+      }
 
       function openModal(skill) {
         currentEditingSkill = skill || null;
-        if (skill) {
+        skillForm.reset();
+        if (currentEditingSkill) {
           modalTitle.textContent = "编辑技能";
-          skillTitle.value = skill.title || "";
-          skillDescription.value = skill.description || "";
-          skillContent.value = skill.content || "";
+          skillTitle.value = currentEditingSkill.title || "";
+          skillDescription.value = currentEditingSkill.description || "";
+          skillContent.value = currentEditingSkill.content || "";
         } else {
           modalTitle.textContent = "新增技能";
-          skillTitle.value = "";
-          skillDescription.value = "";
-          skillContent.value = "";
         }
         skillModal.classList.add("show");
-        skillTitle.focus();
       }
 
       function closeModal() {
         skillModal.classList.remove("show");
-        skillForm.reset();
         currentEditingSkill = null;
+        skillForm.reset();
       }
 
       function saveSkill() {
-        var skillData = {
+        var payload = {
           title: skillTitle.value.trim(),
           description: skillDescription.value.trim(),
           content: skillContent.value.trim()
         };
-
-        if (currentEditingSkill) {
-          // Update existing skill
-          fetch("/api/skills/" + currentEditingSkill.id, {
-            method: "PUT",
-            headers: Object.assign(authHeaders(), { "Content-Type": "application/json" }),
-            body: JSON.stringify(skillData)
-          })
-          .then(function(res) {
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            return res.json();
-          })
-          .then(function() {
-            closeModal();
-            loadSkills();
-            setStatus("技能更新成功", "ok");
-            setTimeout(function() { setStatus(""); }, 3000);
-          })
-          .catch(function(e) {
-            setStatus("更新失败: " + e.message, "err");
-          });
-        } else {
-          // Create new skill
-          fetch("/api/skills", {
-            method: "POST",
-            headers: Object.assign(authHeaders(), { "Content-Type": "application/json" }),
-            body: JSON.stringify(skillData)
-          })
-          .then(function(res) {
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            return res.json();
-          })
-          .then(function() {
-            closeModal();
-            loadSkills();
-            setStatus("技能创建成功", "ok");
-            setTimeout(function() { setStatus(""); }, 3000);
-          })
-          .catch(function(e) {
-            setStatus("创建失败: " + e.message, "err");
-          });
+        if (!payload.title || !payload.description || !payload.content) {
+          alert("请填写所有必填字段");
+          return;
         }
-      }
 
-      function editSkill(skill) {
-        openModal(skill);
+        var url = "/api/skills";
+        var method = "POST";
+        if (currentEditingSkill) {
+          url = "/api/skills/" + currentEditingSkill.id;
+          method = "PUT";
+        }
+
+        setStatus("保存中...", "info");
+        fetch(url, {
+          method: method,
+          headers: Object.assign(authHeaders(), { "Content-Type": "application/json" }),
+          body: JSON.stringify(payload)
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function () {
+            setStatus("保存成功", "ok");
+            closeModal();
+            loadSkills();
+          })
+          .catch(function (e) {
+            setStatus("保存失败: " + e.message, "err");
+          });
       }
 
       function toggleSkill(skillId) {
+        setStatus("切换中...", "info");
         fetch("/api/skills/" + skillId + "/toggle", {
           method: "POST",
           headers: authHeaders()
         })
-        .then(function(res) {
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          return res.json();
-        })
-        .then(function() {
-          loadSkills();
-          setStatus("技能状态切换成功", "ok");
-          setTimeout(function() { setStatus(""); }, 2000);
-        })
-        .catch(function(e) {
-          setStatus("切换失败: " + e.message, "err");
-        });
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function () {
+            setStatus("状态切换成功", "ok");
+            loadSkills();
+          })
+          .catch(function (e) {
+            setStatus("切换失败: " + e.message, "err");
+          });
       }
 
       function deleteSkill(skillId) {
-        if (!confirm("确定要删除这个技能吗？此操作无法撤销。")) {
-          return;
-        }
-
+        if (!confirm("确定删除这个技能吗？")) return;
+        setStatus("删除中...", "info");
         fetch("/api/skills/" + skillId, {
           method: "DELETE",
           headers: authHeaders()
         })
-        .then(function(res) {
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          return res.json();
-        })
-        .then(function() {
-          loadSkills();
-          setStatus("技能删除成功", "ok");
-          setTimeout(function() { setStatus(""); }, 3000);
-        })
-        .catch(function(e) {
-          setStatus("删除失败: " + e.message, "err");
-        });
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function () {
+            setStatus("删除成功", "ok");
+            loadSkills();
+          })
+          .catch(function (e) {
+            setStatus("删除失败: " + e.message, "err");
+          });
       }
 
-      // 检查权限
-      fetch("/api/auth/me", { headers: authHeaders() })
-        .then(function (res) {
-          if (!res.ok || res.status === 401) {
-            window.location.href = "/login.html?redirect=" + encodeURIComponent(window.location.pathname);
-            return;
-          }
-          return res.json();
-        })
-        .then(function (me) {
-          if (!me) {
-            window.location.href = "/login.html";
-            return;
-          }
-        })
-        .catch(function () {
-          window.location.href = "/login.html";
-        });
+      skillsTableBody.addEventListener("click", function (e) {
+        var target = e.target;
+        if (!target || !target.getAttribute) return;
+        var action = target.getAttribute("data-action");
+        var id = target.getAttribute("data-id");
+        if (!action || !id) return;
+        if (action === "toggle") {
+          toggleSkill(id);
+          return;
+        }
+        if (action === "delete") {
+          deleteSkill(id);
+          return;
+        }
+        if (action === "edit") {
+          var row = target.closest("tr");
+          openModal(row ? row._skill : null);
+        }
+      });
+
+      btnAddSkill.addEventListener("click", function () { openModal(null); });
+      btnRefreshSkills.addEventListener("click", loadSkills);
+      btnCancel.addEventListener("click", closeModal);
+      btnSave.addEventListener("click", saveSkill);
+      skillModal.addEventListener("click", function (e) {
+        if (e.target === skillModal) closeModal();
+      });
+
+      loadSkills();
     })();
   </script>
 </body>

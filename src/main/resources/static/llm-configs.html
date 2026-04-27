@@ -6,487 +6,234 @@
   <title>LLM 配置管理 · agent-gateway-demo</title>
   <style>
     :root {
-      --bg: #fafbfc;
-      --panel: #ffffff;
+      --bg: #ffffff;
       --panel-2: #f8f9fa;
       --border: #e1e5e9;
       --text: #24292f;
       --muted: #656d76;
       --accent: #0969da;
-      --ok: #238636;
-      --err: #da3633;
-      --warn: #bf8700;
-      --shadow: 0 1px 3px rgba(27, 31, 35, 0.12), 0 1px 2px rgba(27, 31, 35, 0.24);
     }
 
     * { box-sizing: border-box; }
 
     body {
+      margin: 0;
+      padding: 1rem;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      margin: 0;
-      padding: 2rem;
-      line-height: 1.5;
     }
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .header {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 2rem;
-      margin-bottom: 2rem;
-      box-shadow: var(--shadow);
-    }
-
-    .title {
-      font-size: 2rem;
-      font-weight: 600;
-      margin: 0 0 0.5rem;
-      color: var(--text);
-    }
-
-    .subtitle {
-      color: var(--muted);
-      font-size: 1.1rem;
-      margin: 0;
-    }
-
-    .nav {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 2rem;
-      box-shadow: var(--shadow);
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .nav-link {
-      display: inline-block;
-      padding: 0.75rem 1.5rem;
-      background: var(--accent);
-      color: #ffffff;
-      text-decoration: none;
-      border-radius: 8px;
-      font-weight: 500;
-      transition: all 0.15s ease;
-    }
-
-    .nav-link:hover {
-      background: #0858cc;
-      transform: translateY(-1px);
-      box-shadow: var(--shadow);
-    }
-
-    .content {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 2rem;
-      box-shadow: var(--shadow);
-    }
-
-    .configs-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-      gap: 1.5rem;
-    }
-
-    .config-card {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.5rem;
-      background: var(--panel);
-      transition: all 0.15s ease;
-      box-shadow: 0 1px 2px rgba(27, 31, 35, 0.06);
-    }
-
-    .config-card:hover {
-      border-color: var(--accent);
-      box-shadow: var(--shadow);
-      transform: translateY(-2px);
-    }
-
-    .config-card.active {
-      border-color: var(--ok);
-      box-shadow: 0 0 0 2px rgba(35, 134, 54, 0.1);
-    }
-
-    .config-header {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
-    }
-
-    .config-icon {
-      font-size: 1.5rem;
-      width: 2.5rem;
-      height: 2.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--accent);
-      color: #ffffff;
-      border-radius: 8px;
-      flex-shrink: 0;
-    }
-
-    .config-name {
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin: 0;
-      color: var(--text);
-    }
-
-    .config-model {
-      color: var(--muted);
-      font-size: 0.9rem;
-      margin: 0 0 0.5rem;
-    }
-
-    .config-url {
-      color: var(--muted);
-      font-size: 0.8rem;
-      margin: 0 0 0.5rem;
-      word-break: break-all;
-    }
-
-    .config-timeouts {
-      color: var(--muted);
-      font-size: 0.8rem;
-      margin: 0 0 1rem;
-    }
-
-    .config-meta {
+    .toolbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.8rem;
-      color: var(--muted);
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
     }
 
-    .config-status {
-      padding: 0.25rem 0.5rem;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 500;
+    .title {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
     }
 
-    .config-status.active {
-      background: #dcfce7;
-      color: #166534;
-    }
-
-    .config-status.inactive {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .config-actions {
+    .toolbar-actions {
       display: flex;
       gap: 0.5rem;
-      margin-top: 1rem;
+      flex-wrap: wrap;
     }
 
     .btn {
-      padding: 0.5rem 0.75rem;
       border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--panel);
+      border-radius: 8px;
+      padding: 0.5rem 0.8rem;
+      background: #fff;
       color: var(--text);
       cursor: pointer;
-      font-size: 0.8rem;
-      transition: all 0.15s ease;
-    }
-
-    .btn:hover {
-      background: var(--panel-2);
     }
 
     .btn.primary {
       background: var(--accent);
-      color: #ffffff;
       border-color: var(--accent);
+      color: #fff;
     }
 
-    .btn.primary:hover {
-      background: #0858cc;
-    }
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
 
-    .btn.danger {
-      background: var(--err);
-      color: #ffffff;
-      border-color: var(--err);
-    }
-
-    .btn.danger:hover {
-      background: #b62324;
-    }
-
-    .btn.success {
-      background: var(--ok);
-      color: #ffffff;
-      border-color: var(--ok);
-    }
-
-    .btn.success:hover {
-      background: #1a7f37;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 3rem;
-      color: var(--muted);
-    }
-
-    .empty-icon {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-      display: block;
-    }
-
-    .empty-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin: 0 0 0.5rem;
-      color: var(--text);
-    }
-
-    .empty-description {
+    table {
+      width: 100%;
+      border-collapse: collapse;
       font-size: 0.9rem;
-      margin: 0;
     }
 
-    .actions {
-      margin-top: 2rem;
-      padding-top: 2rem;
-      border-top: 1px solid var(--border);
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    thead th {
+      background: var(--panel-2);
+      font-weight: 600;
+    }
+
+    .inline-actions {
       display: flex;
-      gap: 1rem;
-      justify-content: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
     }
 
     .status {
-      margin-top: 1rem;
-      padding: 0.75rem;
-      border-radius: 6px;
-      font-weight: 500;
-      text-align: center;
+      margin-top: 0.75rem;
+      padding: 0.6rem 0.7rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
     }
 
     .status.ok {
+      display: block;
       background: #dcfce7;
       color: #166534;
       border: 1px solid #bbf7d0;
     }
 
     .status.err {
+      display: block;
       background: #fef2f2;
       color: #991b1b;
       border: 1px solid #fecaca;
     }
 
     .status.info {
+      display: block;
       background: #eff6ff;
       color: #1e40af;
       border: 1px solid #bfdbfe;
     }
 
-    /* Modal Styles */
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 1.2rem;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      margin-top: 0.8rem;
+      display: none;
+    }
+
     .modal {
       display: none;
       position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
       z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .modal-content {
-      background: var(--panel);
-      margin: 5% auto;
-      padding: 2rem;
+      width: 92%;
+      max-width: 560px;
+      background: #fff;
       border: 1px solid var(--border);
-      border-radius: 12px;
-      width: 90%;
-      max-width: 500px;
-      box-shadow: var(--shadow);
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
+      border-radius: 10px;
+      padding: 1rem;
     }
 
     .modal-title {
-      font-size: 1.25rem;
+      margin: 0 0 0.8rem;
+      font-size: 1rem;
       font-weight: 600;
-      margin: 0;
     }
 
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 1.5rem;
-      cursor: pointer;
-      color: var(--muted);
-    }
-
-    .form-group {
-      margin-bottom: 1rem;
-    }
-
-    .form-label {
-      display: block;
-      font-weight: 500;
-      margin-bottom: 0.5rem;
-      color: var(--text);
-    }
-
+    .form-group { margin-bottom: 0.7rem; }
+    .form-label { display: block; margin-bottom: 0.35rem; font-size: 0.9rem; }
     .form-input {
       width: 100%;
-      padding: 0.75rem;
       border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 1rem;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.1);
+      border-radius: 8px;
+      padding: 0.5rem 0.6rem;
+      font-size: 0.9rem;
     }
 
     .modal-actions {
       display: flex;
-      gap: 1rem;
       justify-content: flex-end;
-      margin-top: 2rem;
-    }
-
-    @media (max-width: 768px) {
-      body {
-        padding: 1rem;
-      }
-
-      .configs-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .nav-links {
-        flex-direction: column;
-      }
-
-      .actions {
-        flex-direction: column;
-      }
-
-      .config-actions {
-        flex-direction: column;
-      }
+      gap: 0.5rem;
+      margin-top: 0.8rem;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1 class="title">LLM 配置管理</h1>
-      <p class="subtitle">管理系统中的 AI 模型配置，支持动态切换</p>
+  <div class="toolbar">
+    <h1 class="title">LLM 配置管理</h1>
+    <div class="toolbar-actions">
+      <button id="btnCreateConfig" class="btn primary" type="button">新增配置</button>
+      <button id="btnRefreshConfigs" class="btn" type="button">刷新列表</button>
     </div>
-
-    <nav class="nav">
-      <div class="nav-links">
-        <a href="/" class="nav-link">返回首页</a>
-        <a href="/admin.html" class="nav-link">管理后台</a>
-        <a href="/skills.html" class="nav-link">技能管理</a>
-      </div>
-    </nav>
-
-    <main class="content">
-      <div id="configsContainer" class="configs-grid">
-        <!-- Configurations will be loaded here -->
-      </div>
-
-      <div id="emptyState" class="empty-state" style="display: none;">
-        <span class="empty-icon">🤖</span>
-        <h3 class="empty-title">暂无 LLM 配置</h3>
-        <p class="empty-description">系统正在初始化配置，请稍后再试。</p>
-      </div>
-
-      <div class="actions">
-        <button id="btnCreateConfig" class="btn primary">创建新配置</button>
-        <button id="btnRefreshConfigs">刷新配置列表</button>
-      </div>
-
-      <div class="status" id="status" style="display: none;"></div>
-    </main>
   </div>
 
-  <!-- Create/Edit Modal -->
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>名称</th>
+        <th>模型</th>
+        <th>Base URL</th>
+        <th>超时(ms)</th>
+        <th>状态</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="configsTableBody"></tbody>
+  </table>
+
+  <div id="emptyState" class="empty">暂无 LLM 配置</div>
+  <div class="status" id="status"></div>
+
   <div id="configModal" class="modal">
     <div class="modal-content">
-      <div class="modal-header">
-        <h2 id="modalTitle" class="modal-title">创建 LLM 配置</h2>
-        <button id="modalClose" class="modal-close">&times;</button>
-      </div>
-
+      <h2 id="modalTitle" class="modal-title">创建 LLM 配置</h2>
       <form id="configForm">
         <div class="form-group">
           <label for="configName" class="form-label">配置名称 *</label>
-          <input type="text" id="configName" class="form-input" required>
+          <input type="text" id="configName" class="form-input" required />
         </div>
-
         <div class="form-group">
           <label for="configBaseUrl" class="form-label">Base URL *</label>
-          <input type="url" id="configBaseUrl" class="form-input" required placeholder="https://api.example.com/v1">
+          <input type="url" id="configBaseUrl" class="form-input" required />
         </div>
-
         <div class="form-group">
           <label for="configApiKey" class="form-label">API Key *</label>
-          <input type="password" id="configApiKey" class="form-input" required>
+          <input type="password" id="configApiKey" class="form-input" required />
         </div>
-
         <div class="form-group">
           <label for="configModel" class="form-label">模型名称 *</label>
-          <input type="text" id="configModel" class="form-input" required placeholder="gpt-4">
+          <input type="text" id="configModel" class="form-input" required />
         </div>
-
         <div class="form-group">
-          <label for="configTimeoutMs" class="form-label">请求超时 (毫秒)</label>
-          <input type="number" id="configTimeoutMs" class="form-input" value="15000" min="1000">
+          <label for="configTimeoutMs" class="form-label">请求超时(ms)</label>
+          <input type="number" id="configTimeoutMs" class="form-input" value="15000" min="1000" />
         </div>
-
         <div class="form-group">
-          <label for="configStreamTimeoutMs" class="form-label">流式超时 (毫秒)</label>
-          <input type="number" id="configStreamTimeoutMs" class="form-input" value="120000" min="1000">
+          <label for="configStreamTimeoutMs" class="form-label">流式超时(ms)</label>
+          <input type="number" id="configStreamTimeoutMs" class="form-input" value="120000" min="1000" />
         </div>
-
         <div class="form-group">
-          <label>
-            <input type="checkbox" id="configIsActive"> 设置为活动配置
-          </label>
+          <label class="form-label"><input type="checkbox" id="configIsActive" /> 设置为活动配置</label>
         </div>
       </form>
-
       <div class="modal-actions">
-        <button id="btnCancel" class="btn">取消</button>
-        <button id="btnSave" class="btn primary">保存</button>
+        <button id="btnCancel" class="btn" type="button">取消</button>
+        <button id="btnSave" class="btn primary" type="button">保存</button>
       </div>
     </div>
   </div>
@@ -494,7 +241,7 @@
   <script>
     (function () {
       var TOKEN_KEY = "agentGatewayJwt";
-      var configsContainer = document.getElementById("configsContainer");
+      var configsTableBody = document.getElementById("configsTableBody");
       var emptyState = document.getElementById("emptyState");
       var statusEl = document.getElementById("status");
       var btnCreateConfig = document.getElementById("btnCreateConfig");
@@ -504,140 +251,66 @@
       var configForm = document.getElementById("configForm");
       var btnCancel = document.getElementById("btnCancel");
       var btnSave = document.getElementById("btnSave");
-      var modalClose = document.getElementById("modalClose");
 
       var editingConfig = null;
 
-      function getToken() {
-        return localStorage.getItem(TOKEN_KEY) || "";
-      }
-
+      function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
       function authHeaders() {
         var h = {};
         var t = getToken();
         if (t) h.Authorization = "Bearer " + t;
         return h;
       }
-
       function setStatus(text, cls) {
         statusEl.textContent = text || "";
-        statusEl.className = "status " + (cls || "info");
-        statusEl.style.display = text ? "block" : "none";
+        statusEl.className = "status" + (cls ? " " + cls : "");
       }
 
-      function createConfigCard(config) {
-        var card = document.createElement("div");
-        card.className = "config-card" + (config.isActive ? " active" : "");
-
-        var header = document.createElement("div");
-        header.className = "config-header";
-
-        var icon = document.createElement("div");
-        icon.className = "config-icon";
-        icon.textContent = "🤖";
-
-        var name = document.createElement("h3");
-        name.className = "config-name";
-        name.textContent = config.name;
-
-        header.appendChild(icon);
-        header.appendChild(name);
-
-        var model = document.createElement("p");
-        model.className = "config-model";
-        model.textContent = "模型: " + config.model;
-
-        var url = document.createElement("p");
-        url.className = "config-url";
-        url.textContent = "API: " + config.baseUrl;
-
-        var timeouts = document.createElement("p");
-        timeouts.className = "config-timeouts";
-        timeouts.textContent = "超时: " + config.timeoutMs + "ms / " + config.streamTimeoutMs + "ms";
-
-        var meta = document.createElement("div");
-        meta.className = "config-meta";
-
-        var status = document.createElement("span");
-        status.className = "config-status " + (config.isActive ? "active" : "inactive");
-        status.textContent = config.isActive ? "活动配置" : "非活动";
-
-        meta.appendChild(status);
-
-        var actions = document.createElement("div");
-        actions.className = "config-actions";
-
-        if (!config.isActive) {
-          var btnActivate = document.createElement("button");
-          btnActivate.className = "btn success";
-          btnActivate.textContent = "设为活动";
-          btnActivate.onclick = function() { activateConfig(config.id); };
-          actions.appendChild(btnActivate);
+      function renderConfigs(data) {
+        configsTableBody.innerHTML = "";
+        if (!data || !data.length) {
+          emptyState.style.display = "block";
+          return;
         }
-
-        var btnEdit = document.createElement("button");
-        btnEdit.className = "btn";
-        btnEdit.textContent = "编辑";
-        btnEdit.onclick = function() { editConfig(config); };
-        actions.appendChild(btnEdit);
-
-        var btnDelete = document.createElement("button");
-        btnDelete.className = "btn danger";
-        btnDelete.textContent = "删除";
-        btnDelete.onclick = function() { deleteConfig(config.id, config.name); };
-        actions.appendChild(btnDelete);
-
-        card.appendChild(header);
-        card.appendChild(model);
-        card.appendChild(url);
-        card.appendChild(timeouts);
-        card.appendChild(meta);
-        card.appendChild(actions);
-
-        return card;
+        emptyState.style.display = "none";
+        data.forEach(function (config) {
+          var row = document.createElement("tr");
+          row.innerHTML =
+            "<td>" + (config.id || "") + "</td>" +
+            "<td>" + (config.name || "") + "</td>" +
+            "<td>" + (config.model || "") + "</td>" +
+            "<td>" + (config.baseUrl || "") + "</td>" +
+            "<td>" + (config.timeoutMs || 0) + " / " + (config.streamTimeoutMs || 0) + "</td>" +
+            "<td>" + (config.isActive ? "活动" : "非活动") + "</td>" +
+            "<td><div class='inline-actions'>" +
+              (config.isActive ? "" : "<button class='btn' data-action='activate' data-id='" + config.id + "'>设为活动</button>") +
+              "<button class='btn' data-action='edit' data-id='" + config.id + "'>编辑</button>" +
+              "<button class='btn' data-action='delete' data-id='" + config.id + "' data-name='" + (config.name || "") + "'>删除</button>" +
+            "</div></td>";
+          row._config = config;
+          configsTableBody.appendChild(row);
+        });
       }
 
       function loadConfigs() {
         setStatus("加载中...", "info");
-
         fetch("/api/admin/llm-configs", { headers: authHeaders() })
           .then(function (res) {
             if (!res.ok) throw new Error("HTTP " + res.status);
             return res.json();
           })
           .then(function (data) {
-            configsContainer.innerHTML = "";
-            setStatus("");
-
-            if (!data || !data.length) {
-              emptyState.style.display = "block";
-              configsContainer.style.display = "none";
-              return;
-            }
-
-            emptyState.style.display = "none";
-            configsContainer.style.display = "grid";
-
-            data.forEach(function (config) {
-              var card = createConfigCard(config);
-              configsContainer.appendChild(card);
-            });
+            renderConfigs(data);
+            setStatus("", "");
           })
           .catch(function (e) {
-            console.error("Failed to load configs:", e);
             setStatus("加载失败: " + e.message, "err");
-            emptyState.style.display = "block";
-            configsContainer.style.display = "none";
           });
       }
 
       function activateConfig(id) {
-        if (!confirm("确定要将此配置设为活动配置吗？这将停用其他所有配置。")) {
-          return;
-        }
-
+        if (!confirm("确定设为活动配置吗？")) return;
         setStatus("激活中...", "info");
-
         fetch("/api/admin/llm-configs/" + id + "/activate", {
           method: "POST",
           headers: authHeaders()
@@ -651,18 +324,13 @@
             loadConfigs();
           })
           .catch(function (e) {
-            console.error("Failed to activate config:", e);
             setStatus("激活失败: " + e.message, "err");
           });
       }
 
       function deleteConfig(id, name) {
-        if (!confirm("确定要删除配置 '" + name + "' 吗？此操作不可撤销。")) {
-          return;
-        }
-
+        if (!confirm("确定删除配置 " + name + " 吗？")) return;
         setStatus("删除中...", "info");
-
         fetch("/api/admin/llm-configs/" + id, {
           method: "DELETE",
           headers: authHeaders()
@@ -673,81 +341,54 @@
             loadConfigs();
           })
           .catch(function (e) {
-            console.error("Failed to delete config:", e);
             setStatus("删除失败: " + e.message, "err");
           });
       }
 
-      function showCreateModal() {
+      function openModal(config) {
+        editingConfig = config || null;
+        modalTitle.textContent = editingConfig ? "编辑 LLM 配置" : "创建 LLM 配置";
+        configForm.reset();
         if (editingConfig) {
-          if (!confirm("您正在编辑配置，确定要放弃编辑并创建新配置吗？")) {
-            return;
-          }
+          document.getElementById("configName").value = editingConfig.name || "";
+          document.getElementById("configBaseUrl").value = editingConfig.baseUrl || "";
+          document.getElementById("configApiKey").value = editingConfig.apiKey || "";
+          document.getElementById("configModel").value = editingConfig.model || "";
+          document.getElementById("configTimeoutMs").value = editingConfig.timeoutMs || 15000;
+          document.getElementById("configStreamTimeoutMs").value = editingConfig.streamTimeoutMs || 120000;
+          document.getElementById("configIsActive").checked = !!editingConfig.isActive;
         }
-        editingConfig = null;
-        modalTitle.textContent = "创建 LLM 配置";
-        configForm.reset();
-        configModal.style.display = "block";
+        configModal.classList.add("show");
       }
 
-      function editConfig(config) {
-        if (!config || !config.id) {
-          console.error("Invalid config for editing:", config);
-          alert("配置数据无效，无法编辑");
-          return;
-        }
-        if (editingConfig && !confirm("您正在创建新配置，确定要放弃创建并编辑现有配置吗？")) {
-          return;
-        }
-        console.log("Editing config:", config);
-        editingConfig = config;
-        modalTitle.textContent = "编辑 LLM 配置";
-        document.getElementById("configName").value = config.name;
-        document.getElementById("configBaseUrl").value = config.baseUrl;
-        document.getElementById("configApiKey").value = config.apiKey;
-        document.getElementById("configModel").value = config.model;
-        document.getElementById("configTimeoutMs").value = config.timeoutMs;
-        document.getElementById("configStreamTimeoutMs").value = config.streamTimeoutMs;
-        document.getElementById("configIsActive").checked = config.isActive;
-        configModal.style.display = "block";
-      }
-
-      function hideModal() {
-        configModal.style.display = "none";
-        configForm.reset();
+      function closeModal() {
+        configModal.classList.remove("show");
         editingConfig = null;
+        configForm.reset();
       }
 
       function saveConfig() {
-        console.log("Saving config, editingConfig:", editingConfig);
-
         var formData = {
           name: document.getElementById("configName").value.trim(),
           baseUrl: document.getElementById("configBaseUrl").value.trim(),
           apiKey: document.getElementById("configApiKey").value,
           model: document.getElementById("configModel").value.trim(),
-          timeoutMs: parseInt(document.getElementById("configTimeoutMs").value) || 15000,
-          streamTimeoutMs: parseInt(document.getElementById("configStreamTimeoutMs").value) || 120000,
+          timeoutMs: parseInt(document.getElementById("configTimeoutMs").value, 10) || 15000,
+          streamTimeoutMs: parseInt(document.getElementById("configStreamTimeoutMs").value, 10) || 120000,
           isActive: document.getElementById("configIsActive").checked
         };
-
         if (!formData.name || !formData.baseUrl || !formData.apiKey || !formData.model) {
           alert("请填写所有必填字段");
           return;
         }
-
-        setStatus("保存中...", "info");
 
         var url = "/api/admin/llm-configs";
         var method = "POST";
         if (editingConfig) {
           url += "/" + editingConfig.id;
           method = "PUT";
-          console.log("Updating config with ID:", editingConfig.id);
-        } else {
-          console.log("Creating new config");
         }
-
+        setStatus("保存中...", "info");
         fetch(url, {
           method: method,
           headers: Object.assign(authHeaders(), { "Content-Type": "application/json" }),
@@ -758,59 +399,44 @@
             return res.json();
           })
           .then(function () {
-            setStatus("配置已保存", "ok");
+            setStatus("保存成功", "ok");
+            closeModal();
             loadConfigs();
-            hideModal();
           })
           .catch(function (e) {
-            console.error("Failed to save config:", e);
             setStatus("保存失败: " + e.message, "err");
-            hideModal();
           });
       }
 
-      btnCreateConfig.addEventListener("click", showCreateModal);
-      btnRefreshConfigs.addEventListener("click", function () {
-        btnRefreshConfigs.disabled = true;
-        btnRefreshConfigs.textContent = "刷新中...";
-        loadConfigs();
-        setTimeout(function () {
-          btnRefreshConfigs.disabled = false;
-          btnRefreshConfigs.textContent = "刷新配置列表";
-        }, 1000);
-      });
-      modalClose.addEventListener("click", hideModal);
-      btnCancel.addEventListener("click", hideModal);
-      btnSave.addEventListener("click", saveConfig);
-
-      window.addEventListener("click", function (e) {
-        if (e.target === configModal) {
-          hideModal();
+      configsTableBody.addEventListener("click", function (e) {
+        var target = e.target;
+        if (!target || !target.getAttribute) return;
+        var action = target.getAttribute("data-action");
+        var id = target.getAttribute("data-id");
+        if (!action || !id) return;
+        if (action === "activate") {
+          activateConfig(id);
+          return;
+        }
+        if (action === "delete") {
+          deleteConfig(id, target.getAttribute("data-name") || "");
+          return;
+        }
+        if (action === "edit") {
+          var row = target.closest("tr");
+          openModal(row ? row._config : null);
         }
       });
 
-      // 页面加载时获取配置数据
-      loadConfigs();
+      btnCreateConfig.addEventListener("click", function () { openModal(null); });
+      btnRefreshConfigs.addEventListener("click", loadConfigs);
+      btnCancel.addEventListener("click", closeModal);
+      btnSave.addEventListener("click", saveConfig);
+      configModal.addEventListener("click", function (e) {
+        if (e.target === configModal) closeModal();
+      });
 
-      // 检查管理员权限
-      fetch("/api/auth/me", { headers: authHeaders() })
-        .then(function (res) {
-          if (!res.ok || res.status === 401) {
-            window.location.href = "/login.html?redirect=" + encodeURIComponent(window.location.pathname);
-            return;
-          }
-          return res.json();
-        })
-        .then(function (me) {
-          if (!me || me.role !== "ADMIN") {
-            alert("需要管理员权限");
-            window.location.href = "/";
-            return;
-          }
-        })
-        .catch(function () {
-          window.location.href = "/login.html";
-        });
+      loadConfigs();
     })();
   </script>
 </body>
