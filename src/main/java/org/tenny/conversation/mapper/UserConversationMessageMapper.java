@@ -1,10 +1,10 @@
-package org.tenny.auth.mapper;
+package org.tenny.conversation.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
-import org.tenny.auth.entity.UserConversationMessage;
+import org.tenny.conversation.entity.UserConversationMessage;
 
 import java.util.List;
 

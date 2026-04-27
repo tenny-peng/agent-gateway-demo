@@ -1,5 +1,6 @@
 package org.tenny.auth.web;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,15 +21,11 @@ import javax.validation.Valid;
 @RestController
 @RequestMapping("/api/auth")
 @Validated
+@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
     private final SessionTokenService sessionTokenService;
-
-    public AuthController(AuthService authService, SessionTokenService sessionTokenService) {
-        this.authService = authService;
-        this.sessionTokenService = sessionTokenService;
-    }
 
     @PostMapping("/register")
     public AuthResponse register(@Valid @RequestBody RegisterRequest request) {

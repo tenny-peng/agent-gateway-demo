@@ -1,9 +1,9 @@
-package org.tenny.auth.mapper;
+package org.tenny.user.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Select;
-import org.tenny.auth.entity.AppUser;
-import org.tenny.auth.model.UserSessionStatsVo;
+import org.tenny.user.entity.AppUser;
+import org.tenny.user.dto.UserSessionStatsVo;
 
 import java.util.List;
 

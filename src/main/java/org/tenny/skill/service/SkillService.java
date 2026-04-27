@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.tenny.admin.dto.AdminSkillDto;
+import org.tenny.skill.dto.AdminSkillDto;
 import org.tenny.skill.dto.AdminSkillProjection;
 import org.tenny.skill.dto.SkillCreateRequest;
 import org.tenny.skill.dto.SkillUpdateRequest;

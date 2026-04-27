@@ -1,4 +1,4 @@
-package org.tenny.auth.web;
+package org.tenny.conversation.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.auth.model.SessionType;
-import org.tenny.auth.service.ConversationDeleteService;
-import org.tenny.auth.service.ConversationQueryService;
+import org.tenny.conversation.service.ConversationDeleteService;
+import org.tenny.conversation.service.ConversationQueryService;
 import org.tenny.dto.ConversationListResponse;
 import org.tenny.dto.ConversationMessagesResponse;
 

@@ -7,8 +7,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.tenny.auth.entity.AppUser;
-import org.tenny.auth.mapper.AppUserMapper;
+import org.tenny.user.entity.AppUser;
+import org.tenny.user.mapper.AppUserMapper;
 import org.tenny.config.AppProperties;
 
 @Component

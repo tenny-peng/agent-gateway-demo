@@ -1,28 +1,20 @@
-package org.tenny.auth.service;
+package org.tenny.conversation.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.tenny.auth.entity.UserConversation;
-import org.tenny.auth.entity.UserConversationMessage;
-import org.tenny.auth.mapper.UserConversationMapper;
-import org.tenny.auth.mapper.UserConversationMessageMapper;
-import org.tenny.common.session.ConversationStore;
+import org.tenny.conversation.entity.UserConversation;
+import org.tenny.conversation.entity.UserConversationMessage;
+import org.tenny.conversation.mapper.UserConversationMapper;
+import org.tenny.conversation.mapper.UserConversationMessageMapper;
 
 @Service
+@RequiredArgsConstructor
 public class ConversationDeleteService {
 
     private final UserConversationMapper userConversationMapper;
     private final UserConversationMessageMapper userConversationMessageMapper;
-    private final ConversationStore conversationStore;
-
-    public ConversationDeleteService(UserConversationMapper userConversationMapper,
-                                    UserConversationMessageMapper userConversationMessageMapper,
-                                    ConversationStore conversationStore) {
-        this.userConversationMapper = userConversationMapper;
-        this.userConversationMessageMapper = userConversationMessageMapper;
-        this.conversationStore = conversationStore;
-    }
 
     /**
      * Delete a conversation and all its messages for a user

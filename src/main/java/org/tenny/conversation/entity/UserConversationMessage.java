@@ -1,4 +1,4 @@
-package org.tenny.skill.entity;
+package org.tenny.conversation.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -9,15 +9,10 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/**
- * User Skill entity - stores custom Markdown-based skills (Cursor-like rules).
- * Each skill contains a title, description, and Markdown content that gets injected
- * into the system prompt when matched during chat.
- */
 @Setter
 @Getter
-@TableName("user_skill")
-public class UserSkill {
+@TableName("user_conversation_message")
+public class UserConversationMessage {
 
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -25,19 +20,25 @@ public class UserSkill {
     @TableField("user_id")
     private Long userId;
 
-    private String title;
+    @TableField("conversation_id")
+    private String conversationId;
 
-    private String description;
+    @TableField("session_type")
+    private String sessionType;
 
+    @TableField("seq_no")
+    private Integer seqNo;
+
+    @TableField("role")
+    private String role;
+
+    @TableField("content")
     private String content;
 
-    @TableField("is_active")
-    private Boolean isActive;
+    @TableField("tool_name")
+    private String toolName;
 
     @TableField("created_at")
     private LocalDateTime createdAt;
-
-    @TableField("updated_at")
-    private LocalDateTime updatedAt;
 
 }

@@ -1,4 +1,4 @@
-package org.tenny.auth.model;
+package org.tenny.user.dto;
 
 import lombok.Getter;
 import lombok.Setter;

@@ -7,8 +7,8 @@ import org.springframework.stereotype.Service;
 import org.tenny.auth.dto.AuthResponse;
 import org.tenny.auth.dto.LoginRequest;
 import org.tenny.auth.dto.RegisterRequest;
-import org.tenny.auth.entity.AppUser;
-import org.tenny.auth.mapper.AppUserMapper;
+import org.tenny.user.entity.AppUser;
+import org.tenny.user.mapper.AppUserMapper;
 import org.tenny.config.AppProperties;
 import org.tenny.exception.UnauthorizedException;
 

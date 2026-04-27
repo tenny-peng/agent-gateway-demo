@@ -1,10 +1,10 @@
-package org.tenny.auth.service;
+package org.tenny.conversation.service;
 
 import org.springframework.stereotype.Service;
-import org.tenny.auth.entity.UserConversationMessage;
-import org.tenny.auth.mapper.UserConversationMapper;
-import org.tenny.auth.mapper.UserConversationMessageMapper;
-import org.tenny.auth.model.ConversationSummaryVo;
+import org.tenny.conversation.entity.UserConversationMessage;
+import org.tenny.conversation.mapper.UserConversationMapper;
+import org.tenny.conversation.mapper.UserConversationMessageMapper;
+import org.tenny.conversation.dto.ConversationSummaryVo;
 import org.tenny.auth.model.SessionType;
 import org.tenny.dto.ConversationListResponse;
 import org.tenny.dto.ConversationMessagesResponse;

@@ -1,4 +1,4 @@
-package org.tenny.admin.dto;
+package org.tenny.skill.dto;
 
 import lombok.Getter;
 import lombok.Setter;

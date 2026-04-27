@@ -1,9 +1,9 @@
-package org.tenny.auth.service;
+package org.tenny.conversation.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.tenny.auth.mapper.UserConversationMapper;
-import org.tenny.auth.mapper.UserConversationMessageMapper;
+import org.tenny.conversation.mapper.UserConversationMapper;
+import org.tenny.conversation.mapper.UserConversationMessageMapper;
 import org.tenny.auth.model.SessionType;
 
 @Service
