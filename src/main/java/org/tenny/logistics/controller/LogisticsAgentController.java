@@ -1,4 +1,4 @@
-package org.tenny.logistics.web;
+package org.tenny.logistics.controller;
 
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;

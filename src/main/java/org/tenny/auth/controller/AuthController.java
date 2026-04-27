@@ -1,4 +1,4 @@
-package org.tenny.auth.web;
+package org.tenny.auth.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;

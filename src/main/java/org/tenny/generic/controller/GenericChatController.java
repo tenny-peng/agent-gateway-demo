@@ -1,4 +1,4 @@
-package org.tenny.generic.web;
+package org.tenny.generic.controller;
 
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
