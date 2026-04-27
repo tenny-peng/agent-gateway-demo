@@ -1,4 +1,4 @@
-package org.tenny.skill.web;
+package org.tenny.skill.controller;
 
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.tenny.admin.dto.AdminSkillDto;
 import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.skill.dto.SkillCreateRequest;
 import org.tenny.skill.dto.SkillUpdateRequest;
@@ -94,5 +95,17 @@ public class SkillController {
     public SkillVo toggleSkill(HttpServletRequest request, @PathVariable Long id) {
         AuthPrincipal principal = (AuthPrincipal) request.getAttribute(AuthPrincipal.REQUEST_ATTR);
         return skillService.toggleSkill(principal.getUserId(), id);
+    }
+
+    /**
+     * Get all skills across all users (admin only).
+     */
+    @GetMapping("/allUsers")
+    public List<AdminSkillDto> listAllUsersSkills(HttpServletRequest request) {
+        AuthPrincipal p = (AuthPrincipal) request.getAttribute(AuthPrincipal.REQUEST_ATTR);
+        if (p == null || !p.isAdmin()) {
+            throw new org.tenny.exception.ForbiddenException("admin only");
+        }
+        return skillService.getAllSkillsForAllUsers();
     }
 }

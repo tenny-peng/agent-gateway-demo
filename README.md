@@ -16,7 +16,7 @@
 | **评测** | `eval/cases.json` + `scripts/eval-run.ps1` 冒烟（需本机已启动应用并配置 Key） |
 | **静态页** | `http://localhost:8080/` 简易流式测试（通用 / 物流两个 Tab）；流式结束后用 **marked + DOMPurify** 渲染 Markdown（粗体、列表等） |
 | **登录 / 注册** | opaque **UUID** 存 **Redis**（会话），用户与统计在 **MySQL**（**MyBatis-Plus**）；前端 `localStorage` 仅存令牌字符串 |
-| **管理后台** | `/admin.html`，接口 `GET /api/admin/stats`（需 `ADMIN` 角色） |
+| **管理后台** | `/admin.html`，（需 `ADMIN` 角色） |
 
 ---
 
@@ -58,7 +58,6 @@ mvn spring-boot:run
 - **物流 Agent**：`/api/logistics/agent/chat`、`/api/logistics/agent/chat/stream`（需登录）
 - **认证**：`/api/auth/register`、`/api/auth/login`、`/api/auth/me`、`/api/auth/logout`
 - **Skill**：`GET /api/skills`、`POST /api/skills`、`PUT /api/skills/{id}`、`DELETE /api/skills/{id}`、`POST /api/skills/{id}/toggle`（需登录）
-- **管理**：`/api/admin/stats`（`ADMIN`）
 - 全局：`IllegalStateException` → 400；`UnauthorizedException` → 401；`ForbiddenException` → 403（`ApiExceptionHandler`）
 
 前端调用说明（对应静态页）：

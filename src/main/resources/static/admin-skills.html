@@ -176,7 +176,7 @@
 
       function loadAllSkills() {
         setStatus("加载中...", "info");
-        fetch("/api/admin/skills", { headers: authHeaders() })
+        fetch("/api/skills/allUsers", { headers: authHeaders() })
           .then(function (res) {
             if (res.status === 401) {
               window.top.location.href = "/login.html?redirect=" + encodeURIComponent("/admin.html");
