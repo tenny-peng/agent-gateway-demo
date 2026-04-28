@@ -448,6 +448,47 @@
     }
     .msg.md-body p + p { margin-top: 0.35rem; }
 
+    /* 联网参考：折叠区；内链改为紧凑文本链，避免沿用正文大块按钮样式 */
+    .msg.md-body .chat-ref-sources {
+      margin-top: 1rem;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel-2);
+      font-size: 0.9rem;
+    }
+    .msg.md-body .chat-ref-sources > summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 0.25rem 0;
+    }
+    .msg.md-body .chat-ref-sources[open] > summary { margin-bottom: 0.5rem; color: var(--text); }
+    .msg.md-body .chat-ref-sources ol {
+      margin: 0.35rem 0 0.25rem 0;
+      padding-left: 1.35rem;
+    }
+    .msg.md-body .chat-ref-sources li { margin: 0.35rem 0; line-height: 1.45; }
+    .msg.md-body .chat-ref-sources a {
+      display: inline;
+      margin: 0;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background: none;
+      color: var(--accent);
+      font-weight: 500;
+      text-decoration: underline;
+      box-shadow: none;
+      transform: none;
+    }
+    .msg.md-body .chat-ref-sources a:hover {
+      background: none;
+      box-shadow: none;
+      transform: none;
+    }
+    .msg.md-body .chat-ref-sources a::after { content: none; }
+
     .chat-input {
       border-top: 1px solid var(--border);
       padding: 1rem 1.25rem;
@@ -833,11 +874,132 @@
         });
         return box.innerHTML;
       }
+      /** 去掉模型误输出的残缺 <details>… HTML（避免 <detailsclass 等污染正文） */
+      function removeBrokenLegacyRefHtml(md) {
+        if (!md || md.toLowerCase().indexOf("<details") === -1) return md;
+        var s = md.replace(/<details[\s\S]*?<\/details>/gi, "");
+        var idx = s.toLowerCase().lastIndexOf("<details");
+        if (idx !== -1) {
+          s = s.slice(0, idx).replace(/\s+$/, "");
+        }
+        return s;
+      }
+      var WEB_REF_MARKER = "---参考来源---";
+      /** 取最后一行「整行 trim 后等于标记」作为分界，避免与正文 --- 冲突 */
+      function extractWebRefsMarkdown(md) {
+        md = md || "";
+        var lines = md.split(/\r?\n/);
+        for (var i = lines.length - 1; i >= 0; i--) {
+          if (lines[i].trim() !== WEB_REF_MARKER) continue;
+          var body = lines.slice(0, i).join("\n").replace(/\s+$/, "");
+          var refTail = lines.slice(i + 1).join("\n");
+          return { body: body, refTail: refTail };
+        }
+        return { body: md, refTail: null };
+      }
+      /**
+       * 参考区：优先纯文本「https://... 空格 简述」；仍兼容旧版 Markdown [简述](url)。
+       */
+      function parseRefBlockLines(tail) {
+        if (!tail || !String(tail).trim()) return [];
+        var lines = String(tail).split(/\r?\n/);
+        var items = [];
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim();
+          if (!line) continue;
+          var md = line.match(/^(?:\d+[\.\)、]\s*)?\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)\s*$/);
+          if (md) {
+            items.push({ title: md[1].trim(), url: md[2].trim() });
+            continue;
+          }
+          var plain = line.match(/^(?:\d+[\.\)、]\s*)?(https?:\/\/\S+)(?:\s+(.+))?$/);
+          if (plain) {
+            var u = plain[1].trim();
+            var t = (plain[2] || "").trim();
+            if (/^https?:\/\//i.test(u) && !/\s/.test(u)) {
+              items.push({ title: t || u, url: u });
+            }
+          }
+        }
+        return items;
+      }
+      function dedupeRefItemsByUrl(items) {
+        var seen = {};
+        var out = [];
+        (items || []).forEach(function (it) {
+          var u = (it.url || "").trim();
+          if (!u || seen[u]) return;
+          seen[u] = true;
+          out.push({ title: it.title || u, url: u });
+        });
+        return out;
+      }
+      function escapeHtmlAttr(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+      function escapeHtmlText(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+      function isSafeHttpUrl(u) {
+        return /^https?:\/\//i.test(u || "") && !/\s/.test(u);
+      }
+      function buildRefsDetailsHtml(items) {
+        var deduped = dedupeRefItemsByUrl(items);
+        var parts = [];
+        for (var i = 0; i < deduped.length; i++) {
+          var it = deduped[i];
+          var u = (it.url || "").trim();
+          if (!isSafeHttpUrl(u)) continue;
+          parts.push(
+            "<li><a href=\"" +
+              escapeHtmlAttr(u) +
+              "\">" +
+              escapeHtmlText(it.title || u) +
+              "</a></li>"
+          );
+        }
+        if (!parts.length) return "";
+        return (
+          "<details class=\"chat-ref-sources\"><summary>参考来源（" +
+          parts.length +
+          "条）</summary><ol>" +
+          parts.join("") +
+          "</ol></details>"
+        );
+      }
+      /** marked 常把块级 <details> 包进 <p>，导致折叠失效；在净化前解开 */
+      function unwrapChatRefDetails(html) {
+        if (!html) return html;
+        return html.replace(
+          /<p>(?:\s|<br\s*\/?>)*(<details[^>]*\bclass="[^"]*\bchat-ref-sources\b[^"]*"[^>]*>[\s\S]*?<\/details>)(?:\s|<br\s*\/?>)*<\/p>/gi,
+          "$1"
+        );
+      }
       function markdownToSafeHtml(text, streaming) {
         if (typeof marked === "undefined" || typeof DOMPurify === "undefined") return null;
         var src = normalizeCitationLinks(streaming ? padStreamingMarkdown(text || "") : (text || ""));
-        var html = marked.parse(src, { mangle: false, headerIds: false });
-        var safe = DOMPurify.sanitize(html);
+        src = removeBrokenLegacyRefHtml(src);
+        var extracted = extractWebRefsMarkdown(src);
+        var refItems =
+          extracted.refTail !== null ? parseRefBlockLines(extracted.refTail) : [];
+        var bodyMd = extracted.refTail !== null ? extracted.body : src;
+        var bodyHtml = unwrapChatRefDetails(
+          marked.parse(bodyMd, { mangle: false, headerIds: false })
+        );
+        var refsHtml = refItems.length ? buildRefsDetailsHtml(refItems) : "";
+        var html = bodyHtml + refsHtml;
+        var safe = DOMPurify.sanitize(html, {
+          USE_PROFILES: { html: true },
+          ADD_TAGS: ["details", "summary"],
+          ADD_ATTR: ["open", "class"]
+        });
         return forceLinksOpenInNewTab(safe);
       }
       var streamRenderQueued = false;
