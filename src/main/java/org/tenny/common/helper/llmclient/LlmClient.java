@@ -3,7 +3,7 @@ package org.tenny.common.helper.llmclient;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -23,12 +23,20 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-@RequiredArgsConstructor
 public class LlmClient {
 
     private final RestTemplate restTemplate;
     private final LlmConfigService llmConfigService;
     private final ObjectMapper objectMapper;
+
+    public LlmClient(
+            @Qualifier("llmRestTemplate") RestTemplate restTemplate,
+            LlmConfigService llmConfigService,
+            ObjectMapper objectMapper) {
+        this.restTemplate = restTemplate;
+        this.llmConfigService = llmConfigService;
+        this.objectMapper = objectMapper;
+    }
 
     /**
      * Simple one-shot chat (no tools). Fails if the model returns tool_calls.

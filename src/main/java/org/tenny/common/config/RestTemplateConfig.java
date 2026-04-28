@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 import org.tenny.llmconfig.service.LlmConfigService;
 
+import java.time.Duration;
+
 @Configuration
 public class RestTemplateConfig {
 
@@ -14,6 +16,15 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(java.time.Duration.ofMillis(llmConfigService.getActiveConfig().getTimeoutMs()))
                 .setReadTimeout(java.time.Duration.ofMillis(llmConfigService.getActiveConfig().getTimeoutMs()))
+                .build();
+    }
+
+    @Bean
+    public RestTemplate webSearchRestTemplate(RestTemplateBuilder builder, AppProperties appProperties) {
+        long ms = Math.max(1000L, appProperties.getWebSearch().getTimeoutMs());
+        return builder
+                .setConnectTimeout(Duration.ofMillis(ms))
+                .setReadTimeout(Duration.ofMillis(ms))
                 .build();
     }
 }

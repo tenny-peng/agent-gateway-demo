@@ -418,6 +418,35 @@
       padding: 0.5em 1rem;
       border-radius: 0 8px 8px 0;
     }
+    .msg.md-body a {
+      display: block;
+      margin: 0.55rem 0;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+      line-height: 1.35;
+      transform: none;
+      box-shadow: none;
+    }
+    .msg.md-body a:hover {
+      transform: none;
+      box-shadow: var(--shadow);
+      background: #f8fbff;
+    }
+    .msg.md-body a::after {
+      content: attr(data-display-url);
+      display: block;
+      margin-top: 0.3rem;
+      font-size: 0.78rem;
+      font-weight: 400;
+      color: var(--muted);
+      word-break: break-all;
+    }
+    .msg.md-body p + p { margin-top: 0.35rem; }
 
     .chat-input {
       border-top: 1px solid var(--border);
@@ -453,6 +482,31 @@
       gap: 0.75rem;
       align-items: center;
       margin-top: 0.75rem;
+    }
+
+    .actions-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .web-search-opt {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .web-search-opt input {
+      margin: 0;
+      cursor: pointer;
     }
 
     .status {
@@ -639,7 +693,13 @@
         <div class="chat-input">
           <textarea id="msg" placeholder="输入消息..."></textarea>
           <div class="actions">
-            <div class="status" id="status"></div>
+            <div class="actions-left">
+              <div class="status" id="status"></div>
+              <label class="web-search-opt" id="webSearchWrap" title="开启后先检索网页再把摘要交给模型（需配置 Tavily，见 application.yml）">
+                <input type="checkbox" id="webSearchToggle" />
+                <span>联网搜索</span>
+              </label>
+            </div>
             <button type="button" class="primary" id="send">发送</button>
           </div>
         </div>
@@ -677,6 +737,8 @@
       var convList = document.getElementById("convList");
       var messagesDom = document.getElementById("messages");
       var chatTitle = document.getElementById("chatTitle");
+      var webSearchWrap = document.getElementById("webSearchWrap");
+      var webSearchToggle = document.getElementById("webSearchToggle");
        var btnLogout = document.getElementById("btnLogout");
        var authLoggedOut = document.getElementById("authLoggedOut");
        var authLoggedIn = document.getElementById("authLoggedIn");
@@ -723,11 +785,42 @@
         }
         return out;
       }
+      function normalizeCitationLinks(text) {
+        var src = text || "";
+        // Normalize non-standard citations like:
+        // [来源说明：https://example.com][来源2: https://example.org]
+        // into standard markdown links [来源说明](https://example.com)...
+        var normalized = src.replace(/\[([^\[\]\n]*?)[：:]\s*(https?:\/\/[^\]\s]+)\]/g, function (_, label, url) {
+          var cleanLabel = (label || "").trim();
+          var cleanUrl = (url || "").trim();
+          if (!cleanUrl) return _;
+          if (!cleanLabel) {
+            return "[" + cleanUrl + "](" + cleanUrl + ")";
+          }
+          return "[" + cleanLabel + "](" + cleanUrl + ")";
+        });
+        // Add a separator between adjacent markdown links to avoid visual sticking.
+        normalized = normalized.replace(/\)\[/g, ") [");
+        return normalized;
+      }
+      function forceLinksOpenInNewTab(html) {
+        var box = document.createElement("div");
+        box.innerHTML = html || "";
+        var links = box.querySelectorAll("a[href]");
+        links.forEach(function (a) {
+          a.setAttribute("target", "_blank");
+          a.setAttribute("rel", "noopener noreferrer nofollow");
+          var href = a.getAttribute("href") || "";
+          a.setAttribute("data-display-url", href);
+        });
+        return box.innerHTML;
+      }
       function markdownToSafeHtml(text, streaming) {
         if (typeof marked === "undefined" || typeof DOMPurify === "undefined") return null;
-        var src = streaming ? padStreamingMarkdown(text || "") : (text || "");
+        var src = normalizeCitationLinks(streaming ? padStreamingMarkdown(text || "") : (text || ""));
         var html = marked.parse(src, { mangle: false, headerIds: false });
-        return DOMPurify.sanitize(html);
+        var safe = DOMPurify.sanitize(html);
+        return forceLinksOpenInNewTab(safe);
       }
       var streamRenderQueued = false;
       function scheduleStreamRender() {
@@ -921,10 +1014,14 @@
         var wasAborted = false;
 
         try {
+          var payload = { message: text, conversationId: convByMode[mode] || undefined };
+          if (mode === "generic" && webSearchToggle && webSearchToggle.checked) {
+            payload.webSearch = true;
+          }
           var res = await fetch(streamUrl[mode], {
             method: "POST",
             headers: authHeadersJson(),
-            body: JSON.stringify({ message: text, conversationId: convByMode[mode] || undefined }),
+            body: JSON.stringify(payload),
             signal: abortController.signal
           });
           if (!res.ok) {
@@ -990,6 +1087,9 @@
       }
        function applyMode(nextMode) {
          mode = nextMode;
+         if (webSearchWrap) {
+           webSearchWrap.style.display = mode === "generic" ? "inline-flex" : "none";
+         }
          msg.placeholder = placeholders[mode];
          tabs.forEach(function (t) {
            t.classList.toggle("active", t.getAttribute("data-mode") === mode);

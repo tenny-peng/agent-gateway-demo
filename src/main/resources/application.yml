@@ -34,11 +34,17 @@ app:
     # If both set, creates or resets this admin on startup (BCrypt hash stored).
     username: ${ADMIN_BOOTSTRAP_USERNAME:}
     password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+  # 通用会话「联网」使用 Tavily：https://tavily.com — 用户勾选联网时才会请求
+  web-search:
+    api-key: ${TAVILY_API_KEY:}
+    max-results: 5
+    max-snippet-chars-per-result: 800
+    timeout-ms: 15000
 
 llm:
   name: default
   base-url: https://ark.cn-beijing.volces.com/api/v3
-  api-key: ${API_KEY:}
+  api-key: ${LLM_API_KEY:}
   model: deepseek-v3-2-251201
   timeout-ms: 15000
   stream-timeout-ms: 120000

@@ -17,4 +17,9 @@ public class ChatRequest {
      */
     private String conversationId;
 
+    /**
+     * When true, generic chat runs a web search first and injects snippets into the LLM prompt (requires Tavily API key).
+     */
+    private Boolean webSearch;
+
 }

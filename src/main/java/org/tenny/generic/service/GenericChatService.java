@@ -42,6 +42,7 @@ public class GenericChatService {
     private final ConversationMessageService conversationMessageService;
     private final UserConversationMessageMapper userConversationMessageMapper;
     private final AppUserMapper appUserMapper;
+    private final WebSearchService webSearchService;
 
     private void checkChatLimit(long userId) {
         AppUser user = appUserMapper.selectById(userId);
@@ -59,8 +60,10 @@ public class GenericChatService {
 
     /**
      * Plain chat (no tools). Pass {@code conversationId} from the previous {@link ChatResponse} to continue.
+     *
+     * @param webSearch when {@link Boolean#TRUE}, runs web search and injects snippets for this turn only (not stored in history).
      */
-    public ChatResponse chat(String userMessage, String conversationId, long userId) {
+    public ChatResponse chat(String userMessage, String conversationId, long userId, Boolean webSearch) {
         checkChatLimit(userId);
         String id;
         List<Map<String, String>> messages = new ArrayList<Map<String, String>>();
@@ -81,8 +84,11 @@ public class GenericChatService {
 
         skillInjectService.augmentChatSystem(messages, userMessage, userId);
 
+        List<Map<String, String>> forLlm = new ArrayList<Map<String, String>>(messages);
+        injectWebSearchContext(forLlm, userMessage, Boolean.TRUE.equals(webSearch));
+
         long start = System.currentTimeMillis();
-        String answer = llmClient.chatCompletions(messages);
+        String answer = llmClient.chatCompletions(forLlm);
         long latency = System.currentTimeMillis() - start;
 
         List<Map<String, String>> toSave = new ArrayList<Map<String, String>>(messages);
@@ -97,7 +103,8 @@ public class GenericChatService {
     /**
      * Build message list for streaming; first SSE event should expose {@link StreamChatContext#getConversationId()}.
      */
-    public StreamChatContext prepareStreamContext(String userMessage, String conversationId, long userId) {
+    public StreamChatContext prepareStreamContext(String userMessage, String conversationId, long userId,
+                                                  Boolean webSearch) {
         checkChatLimit(userId);
         String id;
         List<Map<String, String>> messages = new ArrayList<Map<String, String>>();
@@ -116,15 +123,17 @@ public class GenericChatService {
             messages.add(userMessage(userMessage));
         }
         skillInjectService.augmentChatSystem(messages, userMessage, userId);
-        return new StreamChatContext(id, messages, userId, userMessage);
+        return new StreamChatContext(id, messages, userId, userMessage, Boolean.TRUE.equals(webSearch));
     }
 
     /**
      * Stream tokens then append assistant text to the session.
      */
     public void streamWithContext(StreamChatContext ctx, LlmStreamClient.StreamDeltaConsumer onDelta) throws IOException {
+        List<Map<String, String>> forLlm = new ArrayList<Map<String, String>>(ctx.getMessages());
+        injectWebSearchContext(forLlm, ctx.getUserMessage(), ctx.isWebSearch());
         StringBuilder acc = new StringBuilder();
-        llmStreamClient.streamChatCompletions(ctx.getMessages(), piece -> {
+        llmStreamClient.streamChatCompletions(forLlm, piece -> {
             acc.append(piece);
             onDelta.onDelta(piece);
         });
@@ -144,14 +153,44 @@ public class GenericChatService {
         private final List<Map<String, String>> messages;
         private final long userId;
         private final String userMessage;
+        private final boolean webSearch;
 
-        public StreamChatContext(String conversationId, List<Map<String, String>> messages, long userId, String userMessage) {
+        public StreamChatContext(String conversationId, List<Map<String, String>> messages, long userId,
+                                 String userMessage, boolean webSearch) {
             this.conversationId = conversationId;
             this.messages = messages;
             this.userId = userId;
             this.userMessage = userMessage;
+            this.webSearch = webSearch;
         }
 
+    }
+
+    /**
+     * Inserts an extra {@code system} context with web snippets immediately before the last message (current user turn).
+     * Mutates {@code forLlm} only; session {@code messages} stay without this block for persistence.
+     */
+    private void injectWebSearchContext(List<Map<String, String>> forLlm, String latestUserText, boolean enabled) {
+        if (!enabled) {
+            return;
+        }
+        if (forLlm == null || forLlm.isEmpty()) {
+            return;
+        }
+        String block = webSearchService.searchAndFormat(latestUserText);
+        Map<String, String> row = new HashMap<String, String>();
+        row.put("role", "system");
+        row.put("content",
+                "以下是联网检索得到的候选网页摘要，仅供参考，不代表全部事实。\n"
+                        + "回答要求：\n"
+                        + "1) 先综合归纳后回答，不要逐条复制检索原文。\n"
+                        + "2) 仅在关键结论后给出1-3个来源URL，不要把整段搜索结果原样输出。\n"
+                        + "3) 若问题缺少关键条件（如城市/地区/时间）或检索结果相互矛盾，先明确说明并向用户追问。\n"
+                        + "4) 无法确认时要明确说不确定。\n\n"
+                        + "【联网检索摘要开始】\n"
+                        + block
+                        + "\n【联网检索摘要结束】");
+        forLlm.add(forLlm.size() - 1, row);
     }
 
     private static Map<String, String> chatSystem() {
