@@ -9,7 +9,7 @@ import org.tenny.user.entity.AppUser;
 import org.tenny.conversation.entity.UserConversationMessage;
 import org.tenny.user.mapper.AppUserMapper;
 import org.tenny.conversation.mapper.UserConversationMessageMapper;
-import org.tenny.auth.model.SessionType;
+import org.tenny.generic.enums.SessionType;
 import org.tenny.conversation.service.ConversationMessageService;
 import org.tenny.conversation.service.ConversationTrackingService;
 import org.tenny.common.helper.llmclient.LlmClient;

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.tenny.auth.model.AuthPrincipal;
-import org.tenny.auth.model.SessionType;
+import org.tenny.generic.enums.SessionType;
 import org.tenny.conversation.service.ConversationDeleteService;
 import org.tenny.conversation.service.ConversationQueryService;
 import org.tenny.conversation.dto.ConversationListResponse;

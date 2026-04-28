@@ -1,4 +1,4 @@
-package org.tenny.auth;
+package org.tenny.common.config;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

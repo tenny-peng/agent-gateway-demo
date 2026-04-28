@@ -3,7 +3,7 @@ package org.tenny.user.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.tenny.auth.RequireAdmin;
+import org.tenny.common.config.RequireAdmin;
 import org.tenny.user.dto.AdminStatsResponse;
 import org.tenny.user.entity.AppUser;
 import org.tenny.user.mapper.AppUserMapper;

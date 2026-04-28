@@ -2,7 +2,7 @@ package org.tenny.llmconfig.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import org.tenny.auth.RequireAdmin;
+import org.tenny.common.config.RequireAdmin;
 import org.tenny.llmconfig.entity.LlmConfig;
 import org.tenny.llmconfig.service.LlmConfigService;
 

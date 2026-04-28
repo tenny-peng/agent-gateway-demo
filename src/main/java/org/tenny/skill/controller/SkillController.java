@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.tenny.auth.RequireAdmin;
+import org.tenny.common.config.RequireAdmin;
 import org.tenny.skill.dto.AdminSkillDto;
 import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.skill.dto.SkillCreateRequest;

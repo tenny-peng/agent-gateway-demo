@@ -2,7 +2,7 @@ package org.tenny.conversation.service;
 
 import org.springframework.stereotype.Service;
 import org.tenny.conversation.mapper.UserConversationMapper;
-import org.tenny.auth.model.SessionType;
+import org.tenny.generic.enums.SessionType;
 
 @Service
 public class ConversationTrackingService {

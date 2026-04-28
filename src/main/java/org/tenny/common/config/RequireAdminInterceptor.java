@@ -3,7 +3,6 @@ package org.tenny.common.config;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
-import org.tenny.auth.RequireAdmin;
 import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.common.exception.ForbiddenException;
 

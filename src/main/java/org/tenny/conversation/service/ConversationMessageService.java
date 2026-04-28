@@ -4,7 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.tenny.conversation.mapper.UserConversationMapper;
 import org.tenny.conversation.mapper.UserConversationMessageMapper;
-import org.tenny.auth.model.SessionType;
+import org.tenny.generic.enums.SessionType;
 
 @Service
 public class ConversationMessageService {

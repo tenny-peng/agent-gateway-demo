@@ -1,4 +1,4 @@
-package org.tenny.auth.model;
+package org.tenny.generic.enums;
 
 /**
  * Mirrors conversation kind in Redis-backed {@link org.tenny.common.session.ConversationStore}.

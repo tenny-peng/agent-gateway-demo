@@ -5,7 +5,7 @@ import org.tenny.conversation.entity.UserConversationMessage;
 import org.tenny.conversation.mapper.UserConversationMapper;
 import org.tenny.conversation.mapper.UserConversationMessageMapper;
 import org.tenny.conversation.dto.ConversationSummaryVo;
-import org.tenny.auth.model.SessionType;
+import org.tenny.generic.enums.SessionType;
 import org.tenny.conversation.dto.ConversationListResponse;
 import org.tenny.conversation.dto.ConversationMessagesResponse;
 
