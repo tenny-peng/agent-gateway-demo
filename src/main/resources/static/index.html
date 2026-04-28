@@ -712,6 +712,8 @@
   <script>
     (function () {
       var TOKEN_KEY = "agentGatewayJwt";
+      /** 通用问答「联网搜索」勾选状态，刷新后保留 */
+      var WEB_SEARCH_PREF_KEY = "agentGatewayGenericWebSearch";
       if (typeof marked !== "undefined") {
         marked.setOptions({ breaks: true, gfm: true, mangle: false, headerIds: false });
       }
@@ -739,6 +741,22 @@
       var chatTitle = document.getElementById("chatTitle");
       var webSearchWrap = document.getElementById("webSearchWrap");
       var webSearchToggle = document.getElementById("webSearchToggle");
+
+      function loadWebSearchPreference() {
+        if (!webSearchToggle) return;
+        try {
+          var v = localStorage.getItem(WEB_SEARCH_PREF_KEY);
+          if (v === "1") webSearchToggle.checked = true;
+          else if (v === "0") webSearchToggle.checked = false;
+        } catch (e) { /* ignore */ }
+      }
+      function saveWebSearchPreference() {
+        if (!webSearchToggle) return;
+        try {
+          localStorage.setItem(WEB_SEARCH_PREF_KEY, webSearchToggle.checked ? "1" : "0");
+        } catch (e) { /* ignore */ }
+      }
+
        var btnLogout = document.getElementById("btnLogout");
        var authLoggedOut = document.getElementById("authLoggedOut");
        var authLoggedIn = document.getElementById("authLoggedIn");
@@ -1259,6 +1277,10 @@
         setStatus("已切换到新会话", "ok");
       });
       send.addEventListener("click", doSend);
+      if (webSearchToggle) {
+        webSearchToggle.addEventListener("change", saveWebSearchPreference);
+      }
+      loadWebSearchPreference();
       msg.addEventListener("keydown", function (e) {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
