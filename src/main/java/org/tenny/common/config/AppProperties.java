@@ -49,6 +49,7 @@ public class AppProperties {
         /**
          * Tavily API key (e.g. env {@code TAVILY_API_KEY}).
          */
+        private String baseUrl = "";
         private String apiKey = "";
         private int maxResults = 5;
         private int maxSnippetCharsPerResult = 800;

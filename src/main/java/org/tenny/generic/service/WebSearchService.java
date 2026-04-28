@@ -20,8 +20,6 @@ import java.util.Map;
 @Service
 public class WebSearchService {
 
-    private static final String TAVILY_URL = "https://api.tavily.com/search";
-
     private final RestTemplate webSearchRestTemplate;
     private final AppProperties appProperties;
     private final ObjectMapper objectMapper;
@@ -67,7 +65,7 @@ public class WebSearchService {
 
         ResponseEntity<String> response;
         try {
-            response = webSearchRestTemplate.postForEntity(TAVILY_URL, entity, String.class);
+            response = webSearchRestTemplate.postForEntity(appProperties.getWebSearch().getBaseUrl(), entity, String.class);
         } catch (Exception e) {
             throw new IllegalStateException("联网检索失败: " + e.getMessage(), e);
         }
