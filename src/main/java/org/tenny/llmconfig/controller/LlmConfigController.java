@@ -2,8 +2,7 @@ package org.tenny.llmconfig.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import org.tenny.auth.model.AuthPrincipal;
-import org.tenny.common.exception.ForbiddenException;
+import org.tenny.auth.RequireAdmin;
 import org.tenny.llmconfig.entity.LlmConfig;
 import org.tenny.llmconfig.service.LlmConfigService;
 
@@ -16,6 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin/llm-configs")
 @RequiredArgsConstructor
+@RequireAdmin
 public class LlmConfigController {
 
     private final LlmConfigService llmConfigService;
@@ -25,7 +25,6 @@ public class LlmConfigController {
      */
     @GetMapping
     public List<LlmConfig> getAllConfigs(HttpServletRequest request) {
-        checkAdminPermission(request);
         return llmConfigService.list();
     }
 
@@ -34,7 +33,6 @@ public class LlmConfigController {
      */
     @GetMapping("/{id}")
     public LlmConfig getConfig(@PathVariable Long id, HttpServletRequest request) {
-        checkAdminPermission(request);
         return llmConfigService.getConfigById(id);
     }
 
@@ -43,7 +41,6 @@ public class LlmConfigController {
      */
     @GetMapping("/active")
     public LlmConfig getActiveConfig(HttpServletRequest request) {
-        checkAdminPermission(request);
         return llmConfigService.getActiveConfig();
     }
 
@@ -52,7 +49,6 @@ public class LlmConfigController {
      */
     @PostMapping
     public LlmConfig createConfig(@RequestBody LlmConfig config, HttpServletRequest request) {
-        checkAdminPermission(request);
         return llmConfigService.add(config);
     }
 
@@ -61,7 +57,6 @@ public class LlmConfigController {
      */
     @PutMapping("/{id}")
     public LlmConfig updateConfig(@PathVariable Long id, @RequestBody LlmConfig config, HttpServletRequest request) {
-        checkAdminPermission(request);
         return llmConfigService.updateConfig(id, config);
     }
 
@@ -70,7 +65,6 @@ public class LlmConfigController {
      */
     @PostMapping("/{id}/activate")
     public LlmConfig activateConfig(@PathVariable Long id, HttpServletRequest request) {
-        checkAdminPermission(request);
         return llmConfigService.setActiveConfig(id);
     }
 
@@ -79,14 +73,7 @@ public class LlmConfigController {
      */
     @DeleteMapping("/{id}")
     public void deleteConfig(@PathVariable Long id, HttpServletRequest request) {
-        checkAdminPermission(request);
         llmConfigService.deleteConfig(id);
     }
 
-    private void checkAdminPermission(HttpServletRequest request) {
-        AuthPrincipal p = (AuthPrincipal) request.getAttribute(AuthPrincipal.REQUEST_ATTR);
-        if (p == null || !p.isAdmin()) {
-            throw new ForbiddenException("admin only");
-        }
-    }
 }

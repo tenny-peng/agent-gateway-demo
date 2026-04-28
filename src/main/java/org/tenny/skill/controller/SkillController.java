@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.tenny.common.exception.ForbiddenException;
+import org.tenny.auth.RequireAdmin;
 import org.tenny.skill.dto.AdminSkillDto;
 import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.skill.dto.SkillCreateRequest;
@@ -102,11 +102,8 @@ public class SkillController {
      * Get all skills across all users (admin only).
      */
     @GetMapping("/allUsers")
-    public List<AdminSkillDto> listAllUsersSkills(HttpServletRequest request) {
-        AuthPrincipal p = (AuthPrincipal) request.getAttribute(AuthPrincipal.REQUEST_ATTR);
-        if (p == null || !p.isAdmin()) {
-            throw new ForbiddenException("admin only");
-        }
+    @RequireAdmin
+    public List<AdminSkillDto> listAllUsersSkills() {
         return skillService.getAllSkillsForAllUsers();
     }
 }

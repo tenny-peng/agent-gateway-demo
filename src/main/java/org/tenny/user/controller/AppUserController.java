@@ -3,14 +3,12 @@ package org.tenny.user.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.tenny.auth.RequireAdmin;
 import org.tenny.user.dto.AdminStatsResponse;
 import org.tenny.user.entity.AppUser;
 import org.tenny.user.mapper.AppUserMapper;
-import org.tenny.auth.model.AuthPrincipal;
 import org.tenny.user.dto.UserSessionStatsVo;
-import org.tenny.common.exception.ForbiddenException;
 
-import javax.servlet.http.HttpServletRequest;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,6 +17,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
+@RequireAdmin
 @RequiredArgsConstructor
 public class AppUserController {
 
@@ -27,11 +26,7 @@ public class AppUserController {
     private final AppUserMapper appUserMapper;
 
     @GetMapping("/users")
-    public List<AdminStatsResponse.UserWithSessions> listUsers(HttpServletRequest request) {
-        AuthPrincipal p = (AuthPrincipal) request.getAttribute(AuthPrincipal.REQUEST_ATTR);
-        if (p == null || !p.isAdmin()) {
-            throw new ForbiddenException("admin only");
-        }
+    public List<AdminStatsResponse.UserWithSessions> listUsers() {
         List<UserSessionStatsVo> rows = appUserMapper.selectUserSessionStats();
         List<AdminStatsResponse.UserWithSessions> out = new ArrayList<>();
         for (UserSessionStatsVo r : rows) {
@@ -49,12 +44,7 @@ public class AppUserController {
     }
 
     @GetMapping("/users/{userId}/chat-limit")
-    public ResponseEntity<Map<String, Object>> getChatLimit(@PathVariable("userId") Long userId,
-                                                           HttpServletRequest request) {
-        AuthPrincipal p = (AuthPrincipal) request.getAttribute(AuthPrincipal.REQUEST_ATTR);
-        if (p == null || !p.isAdmin()) {
-            throw new ForbiddenException("admin only");
-        }
+    public ResponseEntity<Map<String, Object>> getChatLimit(@PathVariable("userId") Long userId) {
         AppUser user = appUserMapper.selectById(userId);
         if (user == null) {
             return ResponseEntity.notFound().build();
@@ -66,12 +56,7 @@ public class AppUserController {
 
     @PutMapping("/users/{userId}/chat-limit")
     public void updateChatLimit(@PathVariable("userId") Long userId,
-                               @RequestParam("limitEnabled") Boolean limitEnabled,
-                               HttpServletRequest request) {
-        AuthPrincipal p = (AuthPrincipal) request.getAttribute(AuthPrincipal.REQUEST_ATTR);
-        if (p == null || !p.isAdmin()) {
-            throw new ForbiddenException("admin only");
-        }
+                               @RequestParam("limitEnabled") Boolean limitEnabled) {
         AppUser user = new AppUser();
         user.setId(userId);
         user.setChatLimitEnabled(limitEnabled);
