@@ -54,5 +54,14 @@ public class AppProperties {
         private int maxResults = 5;
         private int maxSnippetCharsPerResult = 800;
         private int timeoutMs = 15000;
+        /**
+         * Tavily {@code search_depth}: {@code basic}, {@code advanced}, {@code fast}, {@code ultra-fast}.
+         * {@code advanced} improves recall for list/detail queries (higher latency and Tavily credit cost).
+         */
+        private String searchDepth = "basic";
+        /**
+         * Tavily {@code chunks_per_source}; applies when depth uses chunk mode (e.g. {@code advanced}).
+         */
+        private int chunksPerSource = 3;
     }
 }

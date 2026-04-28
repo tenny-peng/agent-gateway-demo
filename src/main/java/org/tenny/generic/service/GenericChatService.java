@@ -177,16 +177,21 @@ public class GenericChatService {
         if (forLlm == null || forLlm.isEmpty()) {
             return;
         }
-        String block = webSearchService.searchAndFormat(latestUserText);
+        WebSearchService.InjectBlock inject = webSearchService.searchAndFormatBlock(latestUserText);
+        String block = inject.getBody();
+        int n = inject.getResultCount();
         Map<String, String> row = new HashMap<String, String>();
         row.put("role", "system");
         row.put("content",
-                "以下是联网检索得到的候选网页摘要，仅供参考，不代表全部事实。\n"
+                "以下是联网检索得到的候选网页摘要（本回合共 " + n + " 条命中），仅供参考，不代表全部事实。\n"
                         + "回答要求：\n"
-                        + "1) 先综合归纳后回答，不要逐条复制检索原文。\n"
-                        + "2) 仅在关键结论后给出1-3个来源URL，不要把整段搜索结果原样输出。\n"
-                        + "3) 若问题缺少关键条件（如城市/地区/时间）或检索结果相互矛盾，先明确说明并向用户追问。\n"
-                        + "4) 无法确认时要明确说不确定。\n\n"
+                        + "1) 开头用一两句话说明已参考上述几条检索摘要（类似「综合了 N 条网页信息」），N 取实际命中条数。\n"
+                        + "2) 先归纳后作答，不要大段照抄摘要原文；但遇到列举、推荐、对比、有哪些类问题，必须分点写出多项，"
+                        + "每项尽量对应不同 URL 下的不同要点，禁止把多项信息压成单条笼统结论。\n"
+                        + "3) 来源与链接：重要分点或结论处标注对应 URL；当命中不少于 3 条时，文末「参考链接」须列出至少 3 个不同来源 URL；"
+                        + "命中少于 3 条则逐条列出即可。天气等事实类也鼓励多源交叉核对。\n"
+                        + "4) 若问题缺少关键条件（如城市/地区/时间）或检索结果相互矛盾，先说明并向用户追问。\n"
+                        + "5) 无法确认时要明确说不确定。\n\n"
                         + "【联网检索摘要开始】\n"
                         + block
                         + "\n【联网检索摘要结束】");

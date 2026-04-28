@@ -1,5 +1,6 @@
 package org.tenny.generic.controller;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,13 +24,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RestController
 @RequestMapping("/api/generic")
 @Validated
+@RequiredArgsConstructor
 public class GenericChatController {
 
     private final GenericChatService genericChatService;
-
-    public GenericChatController(GenericChatService genericChatService) {
-        this.genericChatService = genericChatService;
-    }
 
     @PostMapping("/chat")
     public ChatResponse chat(@Valid @RequestBody ChatRequest request, HttpServletRequest httpRequest) {
