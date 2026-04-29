@@ -343,8 +343,112 @@
       min-height: 0;
     }
 
-    .msg {
+    .msg-row {
       max-width: min(85%, 800px);
+      width: fit-content;
+      min-width: 0;
+    }
+
+    .msg-row-user {
+      justify-self: end;
+    }
+
+    .msg-row-assistant {
+      justify-self: start;
+      width: 100%;
+    }
+
+    .msg-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .msg-actions-row {
+      display: flex;
+      align-items: center;
+    }
+
+    .msg-row-user .msg-actions-row {
+      justify-content: flex-end;
+    }
+
+    .msg-row-assistant .msg-actions-row {
+      justify-content: flex-start;
+    }
+
+    .msg-copy-btn {
+      flex-shrink: 0;
+      min-width: 2.25rem;
+      height: 2rem;
+      padding: 0 0.4rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.65rem;
+      line-height: 1;
+      font-weight: 600;
+      transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .msg-copy-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      background: #f0f6ff;
+    }
+
+    .msg-copy-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .msg-typing-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+      min-height: 1.6rem;
+    }
+
+    .typing-dots {
+      display: inline-flex;
+      gap: 0.28rem;
+      align-items: center;
+    }
+
+    .typing-dots span {
+      width: 0.4rem;
+      height: 0.4rem;
+      border-radius: 50%;
+      background: var(--muted);
+      animation: typing-dot 1.15s ease-in-out infinite;
+    }
+
+    .typing-dots span:nth-child(2) {
+      animation-delay: 0.18s;
+    }
+
+    .typing-dots span:nth-child(3) {
+      animation-delay: 0.36s;
+    }
+
+    @keyframes typing-dot {
+      0%, 70%, 100% {
+        opacity: 0.35;
+        transform: translateY(0);
+      }
+      35% {
+        opacity: 1;
+        transform: translateY(-4px);
+      }
+    }
+
+    .msg {
       border-radius: 12px;
       padding: 0.875rem 1rem;
       line-height: 1.6;
@@ -354,7 +458,6 @@
     }
 
     .msg.user {
-      justify-self: end;
       background: var(--user);
       border: 1px solid var(--border);
       color: var(--text);
@@ -362,7 +465,6 @@
     }
 
     .msg.assistant {
-      justify-self: start;
       background: var(--assistant);
       border: 1px solid var(--border);
     }
@@ -559,6 +661,29 @@
       flex: 1;
     }
 
+    .global-status {
+      flex-shrink: 0;
+      padding: 0.35rem 1.25rem;
+      min-height: 0;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--muted);
+      background: var(--panel-2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .global-status:empty {
+      display: none;
+    }
+
+    .global-status.ok {
+      color: var(--ok);
+    }
+
+    .global-status.err {
+      color: var(--err);
+    }
+
     .web-search-opt {
       display: inline-flex;
       align-items: center;
@@ -574,16 +699,6 @@
       margin: 0;
       cursor: pointer;
     }
-
-    .status {
-      min-height: 1.2rem;
-      color: var(--muted);
-      font-size: 0.85rem;
-      font-weight: 500;
-    }
-
-    .status.ok { color: var(--ok); }
-    .status.err { color: var(--err); }
 
     /* 停止生成按钮 */
     .stop-btn {
@@ -756,11 +871,11 @@
       <section class="chat">
         <div class="chat-head"><strong id="chatTitle">新会话</strong></div>
         <div id="messages" aria-live="polite"></div>
+        <div class="global-status" id="globalStatus" role="status" aria-live="polite"></div>
         <div class="chat-input">
           <textarea id="msg" placeholder="输入消息..."></textarea>
           <div class="actions">
             <div class="actions-left">
-              <div class="status" id="status"></div>
               <label class="web-search-opt" id="webSearchWrap" title="开启后先检索网页再把摘要交给模型（需配置 Tavily，见 application.yml）">
                 <input type="checkbox" id="webSearchToggle" />
                 <span>联网搜索</span>
@@ -805,7 +920,8 @@
 
       var msg = document.getElementById("msg");
       var send = document.getElementById("send");
-      var status = document.getElementById("status");
+      var globalStatus = document.getElementById("globalStatus");
+      var statusClearTimer = null;
       var tabs = document.querySelectorAll(".tab");
       var newConv = document.getElementById("newConv");
       var convList = document.getElementById("convList");
@@ -873,9 +989,79 @@
       function gotoLogin() {
         window.location.href = "/login.html?redirect=" + encodeURIComponent(window.location.pathname || "/");
       }
-      function setStatus(text, cls) {
-        status.textContent = text || "";
-        status.className = "status" + (cls ? " " + cls : "");
+      function setStatus(text, cls, opts) {
+        opts = opts || {};
+        if (statusClearTimer) {
+          clearTimeout(statusClearTimer);
+          statusClearTimer = null;
+        }
+        var t = text || "";
+        globalStatus.textContent = t;
+        globalStatus.className = "global-status" + (cls ? " " + cls : "");
+        if (t && opts.autoClearMs) {
+          statusClearTimer = setTimeout(function () {
+            statusClearTimer = null;
+            globalStatus.textContent = "";
+            globalStatus.className = "global-status";
+          }, opts.autoClearMs);
+        }
+      }
+
+      function buildMessageCopyPlain(m) {
+        if (!m) return "";
+        if (m.role === "user") return m.content || "";
+        var parts = [];
+        if (m.reasoning && showDeepThinkingUi()) {
+          parts.push(m.reasoning);
+        }
+        if (m.content) {
+          if (parts.length) parts.push("");
+          parts.push(m.content);
+        }
+        return parts.join("\n");
+      }
+
+      function copyTextToClipboard(text) {
+        text = text == null ? "" : String(text);
+        function doneOk() {
+          setStatus("已复制到剪贴板", "ok", { autoClearMs: 2000 });
+        }
+        function fail() {
+          setStatus("复制失败，请手动选择文本复制", "err", { autoClearMs: 4000 });
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(doneOk).catch(function () {
+            try {
+              var ta = document.createElement("textarea");
+              ta.value = text;
+              ta.setAttribute("readonly", "");
+              ta.style.position = "fixed";
+              ta.style.left = "-9999px";
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand("copy");
+              document.body.removeChild(ta);
+              doneOk();
+            } catch (e) {
+              fail();
+            }
+          });
+        } else {
+          try {
+            var ta2 = document.createElement("textarea");
+            ta2.value = text;
+            ta2.setAttribute("readonly", "");
+            ta2.style.position = "fixed";
+            ta2.style.left = "-9999px";
+            document.body.appendChild(ta2);
+            ta2.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta2);
+            doneOk();
+          } catch (e2) {
+            fail();
+          }
+        }
       }
        function showLoggedOut() {
          authLoggedOut.classList.remove("hidden");
@@ -1075,10 +1261,16 @@
           return;
         }
         rows.forEach(function (m) {
-          var d = document.createElement("div");
           var role = m.role || "assistant";
+          var wrap = document.createElement("div");
+          wrap.className = "msg-row " + (role === "user" ? "msg-row-user" : "msg-row-assistant");
+
+          var d = document.createElement("div");
           d.className = "msg " + role;
+
           if (role === "assistant") {
+            var contentTrim = String(m.content || "").trim();
+            var streamWaiting = !!m.streaming && !contentTrim && !m.plainText;
             if (m.plainText) {
               d.textContent = m.content || "";
             } else {
@@ -1089,19 +1281,45 @@
                   escapeHtmlText(m.reasoning) +
                   "</pre></details>";
               }
-              var html = markdownToSafeHtml(m.content || "", !!m.streaming);
-              if (html == null) {
-                d.textContent =
-                  (m.reasoning && showDeepThinkingUi() ? m.reasoning + "\n\n" : "") + (m.content || "");
+              if (streamWaiting) {
+                d.innerHTML =
+                  reasoningBlock +
+                  '<div class="msg-typing-wrap"><span class="typing-dots"><span></span><span></span><span></span></span>正在回复</div>';
               } else {
-                d.classList.add("md-body");
-                d.innerHTML = reasoningBlock + html;
+                var html = markdownToSafeHtml(m.content || "", !!m.streaming);
+                if (html == null) {
+                  d.textContent =
+                    (m.reasoning && showDeepThinkingUi() ? m.reasoning + "\n\n" : "") + (m.content || "");
+                } else {
+                  d.classList.add("md-body");
+                  d.innerHTML = reasoningBlock + html;
+                }
               }
             }
           } else {
             d.textContent = m.content || "";
           }
-          messagesDom.appendChild(d);
+
+          var copyBtn = document.createElement("button");
+          copyBtn.type = "button";
+          copyBtn.className = "msg-copy-btn";
+          copyBtn.title = "复制";
+          copyBtn.setAttribute("aria-label", "复制此条消息");
+          copyBtn.textContent = "复制";
+          copyBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            copyTextToClipboard(buildMessageCopyPlain(m));
+          });
+
+          var stack = document.createElement("div");
+          stack.className = "msg-stack";
+          var actionsRow = document.createElement("div");
+          actionsRow.className = "msg-actions-row";
+          actionsRow.appendChild(copyBtn);
+          stack.appendChild(d);
+          stack.appendChild(actionsRow);
+          wrap.appendChild(stack);
+          messagesDom.appendChild(wrap);
         });
         messagesDom.scrollTop = messagesDom.scrollHeight;
       }
@@ -1248,7 +1466,6 @@
         send.textContent = "停止";
         send.classList.add("stop-btn");
         send.disabled = false; // 停止按钮需要可点击
-        setStatus("AI 正在输出...", "");
         msg.value = "";
         msg.disabled = true;
 
@@ -1341,7 +1558,7 @@
           }
           localRows[answerIndex].streaming = false;
           renderMessages();
-          setStatus("完成", "ok");
+          setStatus("完成", "ok", { autoClearMs: 2800 });
           await loadConversations();
           renderConversationList();
         } catch (e) {
@@ -1351,7 +1568,7 @@
             localRows[answerIndex].streaming = false;
             localRows[answerIndex].content += "\n\n*[已停止生成]*";
             renderMessages();
-            setStatus("已停止生成", "");
+            setStatus("已停止生成", "", { autoClearMs: 4000 });
           } else {
             localRows[answerIndex].streaming = false;
             localRows[answerIndex].plainText = true;
@@ -1515,7 +1732,7 @@
             throw new Error("删除失败: HTTP " + res.status + ": " + errText);
           }
 
-          setStatus("删除成功", "ok");
+          setStatus("删除成功", "ok", { autoClearMs: 2800 });
 
           // 如果删除的是当前会话，切换到新会�?
           if (convByMode[mode] === conversationId) {
@@ -1544,7 +1761,7 @@
         chatTitle.textContent = "新会话";
         renderConversationList();
         renderMessages();
-        setStatus("已切换到新会话", "ok");
+        setStatus("已切换到新会话", "ok", { autoClearMs: 2800 });
       });
       send.addEventListener("click", doSend);
       if (webSearchToggle) {
