@@ -14,6 +14,7 @@ import org.tenny.common.helper.llmclient.LlmClient;
 import org.tenny.common.helper.llmclient.LlmStreamClient;
 import org.tenny.common.helper.llmclient.dto.LlmCompletionResult;
 import org.tenny.common.helper.llmclient.dto.StreamChunkKind;
+import org.tenny.common.helper.llmclient.dto.StreamTextChunk;
 import org.tenny.common.session.ConversationStore;
 import org.tenny.generic.dto.ChatResponse;
 import org.tenny.common.exception.ChatLimitExceededException;
@@ -64,8 +65,10 @@ public class GenericChatService {
      * Plain chat (no tools). Pass {@code conversationId} from the previous {@link ChatResponse} to continue.
      *
      * @param webSearch when {@link Boolean#TRUE}, runs web search and injects snippets for this turn only (not stored in history).
+     * @param deepThinking when {@link Boolean#TRUE}, persists and returns model {@code reasoning_content} when present.
      */
-    public ChatResponse chat(String userMessage, String conversationId, long userId, Boolean webSearch) {
+    public ChatResponse chat(String userMessage, String conversationId, long userId, Boolean webSearch,
+                             Boolean deepThinking) {
         checkChatLimit(userId);
         String id;
         List<Map<String, String>> messages = new ArrayList<Map<String, String>>();
@@ -104,7 +107,7 @@ public class GenericChatService {
         if (answer == null || answer.trim().isEmpty()) {
             throw new IllegalStateException("LLM response missing message.content");
         }
-        String reasoning = result.getReasoning();
+        String reasoning = Boolean.TRUE.equals(deepThinking) ? result.getReasoning() : null;
 
         List<Map<String, String>> toSave = new ArrayList<Map<String, String>>(messages);
         toSave.add(assistantMessage(answer, reasoning));
@@ -120,7 +123,7 @@ public class GenericChatService {
      * Build message list for streaming; first SSE event should expose {@link StreamChatContext#getConversationId()}.
      */
     public StreamChatContext prepareStreamContext(String userMessage, String conversationId, long userId,
-                                                  Boolean webSearch) {
+                                                  Boolean webSearch, Boolean deepThinking) {
         checkChatLimit(userId);
         String id;
         List<Map<String, String>> messages = new ArrayList<Map<String, String>>();
@@ -139,40 +142,68 @@ public class GenericChatService {
             messages.add(userMessage(userMessage));
         }
         skillInjectService.augmentChatSystem(messages, userMessage, userId);
-        return new StreamChatContext(id, messages, userId, userMessage, Boolean.TRUE.equals(webSearch));
+        return new StreamChatContext(
+                id, messages, userId, userMessage, Boolean.TRUE.equals(webSearch), Boolean.TRUE.equals(deepThinking));
     }
 
     /**
-     * Stream reasoning and answer tokens, then append assistant message to the session.
+     * Stream answer tokens; when {@link StreamChatContext#isDeepThinking()} also streams and persists reasoning.
+     * Note: upstream may still emit reasoning in the HTTP body; when deep thinking is off we only parse {@code content}
+     * deltas (see {@link LlmStreamClient#streamChatCompletions}) — that saves persistence and SSE bandwidth, not necessarily provider billing.
      */
     public void streamWithContext(StreamChatContext ctx, LlmStreamClient.StreamChunkConsumer onChunk) throws IOException {
         List<Map<String, String>> forLlm = messagesForLlmApi(new ArrayList<Map<String, String>>(ctx.getMessages()));
         injectWebSearchContext(forLlm, ctx.getUserMessage(), ctx.isWebSearch());
-        StringBuilder reasoningAcc = new StringBuilder();
         StringBuilder contentAcc = new StringBuilder();
-        llmStreamClient.streamChatCompletionsWithChunks(forLlm, chunk -> {
-            if (chunk.getKind() == StreamChunkKind.REASONING) {
-                reasoningAcc.append(chunk.getText());
-            } else {
-                contentAcc.append(chunk.getText());
-            }
-            onChunk.onChunk(chunk);
-        });
-        List<Map<String, String>> next = new ArrayList<Map<String, String>>(ctx.getMessages());
-        next.add(assistantMessage(contentAcc.toString(), reasoningAcc.length() > 0 ? reasoningAcc.toString() : null));
-        skillInjectService.stripSkillsFromChatMessages(next);
-        conversationStore.putChatMessages(ctx.getConversationId(), next);
-        conversationMessageService.appendMessage(
-                ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null, ctx.getUserMessage());
-        conversationMessageService.appendMessage(
-                ctx.getUserId(),
-                ctx.getConversationId(),
-                SessionType.GENERIC,
-                "assistant",
-                contentAcc.toString(),
-                null,
-                ctx.getUserMessage(),
-                reasoningAcc.length() > 0 ? reasoningAcc.toString() : null);
+        if (ctx.isDeepThinking()) {
+            StringBuilder reasoningAcc = new StringBuilder();
+            llmStreamClient.streamChatCompletionsWithChunks(forLlm, chunk -> {
+                if (chunk.getKind() == StreamChunkKind.REASONING) {
+                    reasoningAcc.append(chunk.getText());
+                } else {
+                    contentAcc.append(chunk.getText());
+                }
+                onChunk.onChunk(chunk);
+            });
+            List<Map<String, String>> next = new ArrayList<Map<String, String>>(ctx.getMessages());
+            next.add(assistantMessage(
+                    contentAcc.toString(), reasoningAcc.length() > 0 ? reasoningAcc.toString() : null));
+            skillInjectService.stripSkillsFromChatMessages(next);
+            conversationStore.putChatMessages(ctx.getConversationId(), next);
+            conversationMessageService.appendMessage(
+                    ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null,
+                    ctx.getUserMessage());
+            conversationMessageService.appendMessage(
+                    ctx.getUserId(),
+                    ctx.getConversationId(),
+                    SessionType.GENERIC,
+                    "assistant",
+                    contentAcc.toString(),
+                    null,
+                    ctx.getUserMessage(),
+                    reasoningAcc.length() > 0 ? reasoningAcc.toString() : null);
+        } else {
+            llmStreamClient.streamChatCompletions(forLlm, piece -> {
+                contentAcc.append(piece);
+                onChunk.onChunk(new StreamTextChunk(StreamChunkKind.CONTENT, piece));
+            });
+            List<Map<String, String>> next = new ArrayList<Map<String, String>>(ctx.getMessages());
+            next.add(assistantMessage(contentAcc.toString(), null));
+            skillInjectService.stripSkillsFromChatMessages(next);
+            conversationStore.putChatMessages(ctx.getConversationId(), next);
+            conversationMessageService.appendMessage(
+                    ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null,
+                    ctx.getUserMessage());
+            conversationMessageService.appendMessage(
+                    ctx.getUserId(),
+                    ctx.getConversationId(),
+                    SessionType.GENERIC,
+                    "assistant",
+                    contentAcc.toString(),
+                    null,
+                    ctx.getUserMessage(),
+                    null);
+        }
     }
 
     /**
@@ -197,14 +228,16 @@ public class GenericChatService {
         private final long userId;
         private final String userMessage;
         private final boolean webSearch;
+        private final boolean deepThinking;
 
         public StreamChatContext(String conversationId, List<Map<String, String>> messages, long userId,
-                                 String userMessage, boolean webSearch) {
+                                 String userMessage, boolean webSearch, boolean deepThinking) {
             this.conversationId = conversationId;
             this.messages = messages;
             this.userId = userId;
             this.userMessage = userMessage;
             this.webSearch = webSearch;
+            this.deepThinking = deepThinking;
         }
 
     }

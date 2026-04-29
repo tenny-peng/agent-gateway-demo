@@ -109,7 +109,7 @@ public class LlmStreamClient {
                 }
                 JsonNode root = objectMapper.readTree(payload);
                 JsonNode choices = root.path("choices");
-                if (!choices.isArray() || choices.size() == 0) {
+                if (!choices.isArray() || choices.isEmpty()) {
                     continue;
                 }
                 JsonNode delta = choices.get(0).path("delta");

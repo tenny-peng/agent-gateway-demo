@@ -39,7 +39,8 @@ public class GenericChatController {
     public ChatResponse chat(@Valid @RequestBody ChatRequest request, HttpServletRequest httpRequest) {
         AuthPrincipal principal = (AuthPrincipal) httpRequest.getAttribute(AuthPrincipal.REQUEST_ATTR);
         return genericChatService.chat(
-                request.getMessage(), request.getConversationId(), principal.getUserId(), request.getWebSearch());
+                request.getMessage(), request.getConversationId(), principal.getUserId(),
+                request.getWebSearch(), request.getDeepThinking());
     }
 
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -71,7 +72,7 @@ public class GenericChatController {
             try {
                 GenericChatService.StreamChatContext ctx = genericChatService.prepareStreamContext(
                         request.getMessage(), request.getConversationId(), principal.getUserId(),
-                        request.getWebSearch());
+                        request.getWebSearch(), request.getDeepThinking());
                 String meta = "{\"conversationId\":\"" + ctx.getConversationId() + "\"}";
                 emitter.send(SseEmitter.event().data(meta, jsonUtf8));
                 genericChatService.streamWithContext(ctx, chunk -> {

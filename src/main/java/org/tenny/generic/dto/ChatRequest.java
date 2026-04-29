@@ -22,4 +22,10 @@ public class ChatRequest {
      */
     private Boolean webSearch;
 
+    /**
+     * When true, stream and persist model chain-of-thought ({@code reasoning_content}) when the upstream provides it.
+     * {@code null} or false skips reasoning in SSE, Redis, and DB (does not guarantee fewer billed tokens upstream).
+     */
+    private Boolean deepThinking;
+
 }

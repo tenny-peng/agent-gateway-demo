@@ -765,6 +765,10 @@
                 <input type="checkbox" id="webSearchToggle" />
                 <span>联网搜索</span>
               </label>
+              <label class="web-search-opt" id="deepThinkingWrap" title="开启后流式展示并保留历史中的模型思考过程（需模型返回 reasoning，如 DeepSeek-R1）；关闭则仅显示最终回答">
+                <input type="checkbox" id="deepThinkingToggle" />
+                <span>深度思考</span>
+              </label>
             </div>
             <button type="button" class="primary" id="send">发送</button>
           </div>
@@ -780,6 +784,8 @@
       var TOKEN_KEY = "agentGatewayJwt";
       /** 通用问答「联网搜索」勾选状态，刷新后保留 */
       var WEB_SEARCH_PREF_KEY = "agentGatewayGenericWebSearch";
+      /** 通用问答「深度思考」展示开关，刷新后保留 */
+      var DEEP_THINKING_PREF_KEY = "agentGatewayGenericDeepThinking";
       if (typeof marked !== "undefined") {
         marked.setOptions({ breaks: true, gfm: true, mangle: false, headerIds: false });
       }
@@ -807,6 +813,13 @@
       var chatTitle = document.getElementById("chatTitle");
       var webSearchWrap = document.getElementById("webSearchWrap");
       var webSearchToggle = document.getElementById("webSearchToggle");
+      var deepThinkingWrap = document.getElementById("deepThinkingWrap");
+      var deepThinkingToggle = document.getElementById("deepThinkingToggle");
+
+      /** 是否在界面展示思考过程（仅通用模式；服务端仍会保存 reasoning） */
+      function showDeepThinkingUi() {
+        return mode === "generic" && deepThinkingToggle && deepThinkingToggle.checked;
+      }
 
       function loadWebSearchPreference() {
         if (!webSearchToggle) return;
@@ -820,6 +833,21 @@
         if (!webSearchToggle) return;
         try {
           localStorage.setItem(WEB_SEARCH_PREF_KEY, webSearchToggle.checked ? "1" : "0");
+        } catch (e) { /* ignore */ }
+      }
+
+      function loadDeepThinkingPreference() {
+        if (!deepThinkingToggle) return;
+        try {
+          var v = localStorage.getItem(DEEP_THINKING_PREF_KEY);
+          if (v === "1") deepThinkingToggle.checked = true;
+          else if (v === "0") deepThinkingToggle.checked = false;
+        } catch (e) { /* ignore */ }
+      }
+      function saveDeepThinkingPreference() {
+        if (!deepThinkingToggle) return;
+        try {
+          localStorage.setItem(DEEP_THINKING_PREF_KEY, deepThinkingToggle.checked ? "1" : "0");
         } catch (e) { /* ignore */ }
       }
 
@@ -1055,7 +1083,7 @@
               d.textContent = m.content || "";
             } else {
               var reasoningBlock = "";
-              if (m.reasoning) {
+              if (m.reasoning && showDeepThinkingUi()) {
                 reasoningBlock =
                   '<details class="msg-reasoning"><summary>深度思考</summary><pre class="msg-reasoning-pre">' +
                   escapeHtmlText(m.reasoning) +
@@ -1063,7 +1091,8 @@
               }
               var html = markdownToSafeHtml(m.content || "", !!m.streaming);
               if (html == null) {
-                d.textContent = (m.reasoning ? m.reasoning + "\n\n" : "") + (m.content || "");
+                d.textContent =
+                  (m.reasoning && showDeepThinkingUi() ? m.reasoning + "\n\n" : "") + (m.content || "");
               } else {
                 d.classList.add("md-body");
                 d.innerHTML = reasoningBlock + html;
@@ -1233,8 +1262,11 @@
 
         try {
           var payload = { message: text, conversationId: convByMode[mode] || undefined };
-          if (mode === "generic" && webSearchToggle && webSearchToggle.checked) {
-            payload.webSearch = true;
+          if (mode === "generic") {
+            payload.deepThinking = !!(deepThinkingToggle && deepThinkingToggle.checked);
+            if (webSearchToggle && webSearchToggle.checked) {
+              payload.webSearch = true;
+            }
           }
           var res = await fetch(streamUrl[mode], {
             method: "POST",
@@ -1267,8 +1299,10 @@
                   typeof obj.text === "string"
                 ) {
                   if (obj.type === "reasoning") {
-                    localRows[answerIndex].reasoning =
-                      (localRows[answerIndex].reasoning || "") + obj.text;
+                    if (showDeepThinkingUi()) {
+                      localRows[answerIndex].reasoning =
+                        (localRows[answerIndex].reasoning || "") + obj.text;
+                    }
                   } else {
                     localRows[answerIndex].content += obj.text;
                   }
@@ -1292,8 +1326,10 @@
                   typeof obj.text === "string"
                 ) {
                   if (obj.type === "reasoning") {
-                    localRows[answerIndex].reasoning =
-                      (localRows[answerIndex].reasoning || "") + obj.text;
+                    if (showDeepThinkingUi()) {
+                      localRows[answerIndex].reasoning =
+                        (localRows[answerIndex].reasoning || "") + obj.text;
+                    }
                   } else {
                     localRows[answerIndex].content += obj.text;
                   }
@@ -1338,6 +1374,9 @@
          mode = nextMode;
          if (webSearchWrap) {
            webSearchWrap.style.display = mode === "generic" ? "inline-flex" : "none";
+         }
+         if (deepThinkingWrap) {
+           deepThinkingWrap.style.display = mode === "generic" ? "inline-flex" : "none";
          }
          msg.placeholder = placeholders[mode];
          tabs.forEach(function (t) {
@@ -1511,7 +1550,14 @@
       if (webSearchToggle) {
         webSearchToggle.addEventListener("change", saveWebSearchPreference);
       }
+      if (deepThinkingToggle) {
+        deepThinkingToggle.addEventListener("change", function () {
+          saveDeepThinkingPreference();
+          renderMessages();
+        });
+      }
       loadWebSearchPreference();
+      loadDeepThinkingPreference();
       msg.addEventListener("keydown", function (e) {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
