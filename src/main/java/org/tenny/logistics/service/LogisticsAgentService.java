@@ -80,6 +80,7 @@ public class LogisticsAgentService {
         AgentSession session = prepareAgentSession(userMessage, conversationId, userId);
         String convId = session.getConvId();
         List<Map<String, Object>> messages = session.getMessages();
+        persistLogisticsUserTurnEarly(userId, convId, userMessage, messages);
 
         List<Map<String, Object>> tools = LogisticsWaybillToolDefinitions.waybillToolsDefinition();
         int steps = 0;
@@ -116,8 +117,6 @@ public class LogisticsAgentService {
                 skillInjectService.stripSkillsFromAgentMessages(messages);
                 conversationStore.putAgentMessages(convId, messages);
                 conversationMessageService.appendMessage(
-                        userId, convId, SessionType.LOGISTICS, "user", userMessage, null, userMessage);
-                conversationMessageService.appendMessage(
                         userId, convId, SessionType.LOGISTICS, "assistant", result.getContent(), null, userMessage);
 
                 long latency = System.currentTimeMillis() - start;
@@ -140,6 +139,7 @@ public class LogisticsAgentService {
         AgentSession session = prepareAgentSession(userMessage, conversationId, userId);
         String convId = session.getConvId();
         List<Map<String, Object>> messages = session.getMessages();
+        persistLogisticsUserTurnEarly(userId, convId, userMessage, messages);
 
         String meta = "{\"conversationId\":\"" + convId + "\"}";
         emitter.send(SseEmitter.event().data(meta, jsonUtf8));
@@ -183,8 +183,6 @@ public class LogisticsAgentService {
                 ragService.stripRagFromAgentMessages(messages);
                 skillInjectService.stripSkillsFromAgentMessages(messages);
                 conversationStore.putAgentMessages(convId, messages);
-                conversationMessageService.appendMessage(
-                        userId, convId, SessionType.LOGISTICS, "user", userMessage, null, userMessage);
                 conversationMessageService.appendMessage(
                         userId, convId, SessionType.LOGISTICS, "assistant", result.getContent(), null, userMessage);
                 long latency = System.currentTimeMillis() - start;
@@ -231,6 +229,27 @@ public class LogisticsAgentService {
         ragService.augmentAgentSystem(messages, userMessage);
         skillInjectService.augmentAgentSystem(messages, userMessage, userId);
         return new AgentSession(convId, messages);
+    }
+
+    /**
+     * Persist user message and a stripped Redis snapshot immediately so failures mid-agent still keep the question.
+     */
+    private void persistLogisticsUserTurnEarly(long userId, String convId, String userMessage,
+                                               List<Map<String, Object>> messages) {
+        conversationMessageService.appendMessage(
+                userId, convId, SessionType.LOGISTICS, "user", userMessage, null, userMessage);
+        List<Map<String, Object>> forRedis = copyAgentMessages(messages);
+        ragService.stripRagFromAgentMessages(forRedis);
+        skillInjectService.stripSkillsFromAgentMessages(forRedis);
+        conversationStore.putAgentMessages(convId, forRedis);
+    }
+
+    private static List<Map<String, Object>> copyAgentMessages(List<Map<String, Object>> messages) {
+        List<Map<String, Object>> out = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> m : messages) {
+            out.add(new HashMap<String, Object>(m));
+        }
+        return out;
     }
 
     private String executeTool(String name, String argumentsJson) {

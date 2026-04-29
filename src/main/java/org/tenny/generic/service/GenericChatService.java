@@ -98,6 +98,7 @@ public class GenericChatService {
         }
 
         skillInjectService.augmentChatSystem(messages, userMessage, userId);
+        persistGenericUserTurnEarly(userId, id, userMessage, messages);
 
         long start = System.currentTimeMillis();
         if (Boolean.TRUE.equals(webSearch)) {
@@ -123,8 +124,8 @@ public class GenericChatService {
 
         List<Map<String, String>> toSave = new ArrayList<Map<String, String>>(messages);
         toSave.add(assistantMessage(answer, reasoning));
+        skillInjectService.stripSkillsFromChatMessages(toSave);
         conversationStore.putChatMessages(id, toSave);
-        conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "user", userMessage, null, userMessage);
         conversationMessageService.appendMessage(
                 userId, id, SessionType.GENERIC, "assistant", answer, null, userMessage, reasoning);
 
@@ -169,8 +170,8 @@ public class GenericChatService {
 
         List<Map<String, String>> toSave = new ArrayList<Map<String, String>>(messages);
         toSave.add(assistantMessage(answer, reasoning));
+        skillInjectService.stripSkillsFromChatMessages(toSave);
         conversationStore.putChatMessages(id, toSave);
-        conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "user", userMessage, null, userMessage);
         conversationMessageService.appendMessage(
                 userId, id, SessionType.GENERIC, "assistant", answer, null, userMessage, reasoning);
 
@@ -207,8 +208,30 @@ public class GenericChatService {
             messages.add(userMessage(userMessage));
         }
         skillInjectService.augmentChatSystem(messages, userMessage, userId);
+        persistGenericUserTurnEarly(userId, id, userMessage, messages);
         return new StreamChatContext(
                 id, messages, userId, userMessage, Boolean.TRUE.equals(webSearch), Boolean.TRUE.equals(deepThinking));
+    }
+
+    /**
+     * Persist the user's message immediately (DB + Redis) so a refresh after backend failure still shows the question.
+     * Redis copy is stripped of ephemeral skill injection to match {@link #streamWithContext} completion behavior.
+     */
+    private void persistGenericUserTurnEarly(long userId, String conversationId, String userMessage,
+                                             List<Map<String, String>> messages) {
+        conversationMessageService.appendMessage(
+                userId, conversationId, SessionType.GENERIC, "user", userMessage, null, userMessage);
+        List<Map<String, String>> forRedis = copyChatMessages(messages);
+        skillInjectService.stripSkillsFromChatMessages(forRedis);
+        conversationStore.putChatMessages(conversationId, forRedis);
+    }
+
+    private static List<Map<String, String>> copyChatMessages(List<Map<String, String>> messages) {
+        List<Map<String, String>> out = new ArrayList<Map<String, String>>();
+        for (Map<String, String> m : messages) {
+            out.add(new HashMap<String, String>(m));
+        }
+        return out;
     }
 
     /**
@@ -241,9 +264,6 @@ public class GenericChatService {
             skillInjectService.stripSkillsFromChatMessages(next);
             conversationStore.putChatMessages(ctx.getConversationId(), next);
             conversationMessageService.appendMessage(
-                    ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null,
-                    ctx.getUserMessage());
-            conversationMessageService.appendMessage(
                     ctx.getUserId(),
                     ctx.getConversationId(),
                     SessionType.GENERIC,
@@ -261,9 +281,6 @@ public class GenericChatService {
             next.add(assistantMessage(contentAcc.toString(), null));
             skillInjectService.stripSkillsFromChatMessages(next);
             conversationStore.putChatMessages(ctx.getConversationId(), next);
-            conversationMessageService.appendMessage(
-                    ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null,
-                    ctx.getUserMessage());
             conversationMessageService.appendMessage(
                     ctx.getUserId(),
                     ctx.getConversationId(),
@@ -323,9 +340,6 @@ public class GenericChatService {
         next.add(assistantMessage(contentAcc.toString(), null));
         skillInjectService.stripSkillsFromChatMessages(next);
         conversationStore.putChatMessages(ctx.getConversationId(), next);
-        conversationMessageService.appendMessage(
-                ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null,
-                ctx.getUserMessage());
         conversationMessageService.appendMessage(
                 ctx.getUserId(),
                 ctx.getConversationId(),
@@ -398,9 +412,6 @@ public class GenericChatService {
         next.add(assistantMessage(answer, reasoningStored));
         skillInjectService.stripSkillsFromChatMessages(next);
         conversationStore.putChatMessages(ctx.getConversationId(), next);
-        conversationMessageService.appendMessage(
-                ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null,
-                ctx.getUserMessage());
         conversationMessageService.appendMessage(
                 ctx.getUserId(),
                 ctx.getConversationId(),
