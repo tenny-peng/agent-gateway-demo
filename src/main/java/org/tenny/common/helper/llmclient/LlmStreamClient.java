@@ -258,6 +258,121 @@ public class LlmStreamClient {
         return new LlmCompletionResult(text, toolCalls, assistantMessage, null);
     }
 
+    /**
+     * Like {@link #streamChatCompletionsWithTools(List, List, StreamDeltaConsumer)} but forwards
+     * {@code reasoning_content} / {@code thinking} and {@code content} via {@link StreamChunkConsumer}
+     * (same delta order as {@link #streamChatCompletionsWithChunks}).
+     */
+    public LlmCompletionResult streamChatCompletionsWithToolsAndChunks(List<Map<String, Object>> messages,
+                                                                       List<Map<String, Object>> tools,
+                                                                       StreamChunkConsumer onChunk)
+            throws IOException {
+        LlmConfig activeConfig = llmConfigService.getActiveConfig();
+        String apiKey = LlmKeyUtil.normalizeApiKey(activeConfig.getApiKey());
+        if (apiKey.isEmpty()) {
+            throw new IllegalStateException("Missing API key: configure LLM config in database or set environment variable API_KEY");
+        }
+
+        String urlStr = LlmKeyUtil.trimTrailingSlash(activeConfig.getBaseUrl()) + "/chat/completions";
+        URL url = new URL(urlStr);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setConnectTimeout(activeConfig.getTimeoutMs());
+        conn.setReadTimeout(activeConfig.getStreamTimeoutMs());
+        conn.setDoOutput(true);
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+        conn.setRequestProperty("Accept", "text/event-stream");
+        conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+
+        Map<String, Object> body = new HashMap<String, Object>();
+        body.put("model", activeConfig.getModel());
+        body.put("messages", messages);
+        body.put("stream", Boolean.TRUE);
+        if (tools != null && !tools.isEmpty()) {
+            body.put("tools", tools);
+            body.put("tool_choice", "auto");
+        }
+
+        byte[] json = objectMapper.writeValueAsBytes(body);
+        OutputStream os = conn.getOutputStream();
+        os.write(json);
+        os.close();
+
+        int code = conn.getResponseCode();
+        if (code < 200 || code >= 300) {
+            String err = readStreamAsString(conn.getErrorStream() != null ? conn.getErrorStream() : conn.getInputStream());
+            throw new IllegalStateException("LLM HTTP " + code + ": " + err);
+        }
+
+        StringBuilder fullContent = new StringBuilder();
+        StringBuilder fullReasoning = new StringBuilder();
+        Map<Integer, ToolCallAccumulator> toolAcc = new TreeMap<Integer, ToolCallAccumulator>();
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+        String line;
+        try {
+            while ((line = reader.readLine()) != null) {
+                if (line.isEmpty()) {
+                    continue;
+                }
+                if (!line.startsWith("data:")) {
+                    continue;
+                }
+                String payload = line.substring("data:".length()).trim();
+                if (payload.isEmpty()) {
+                    continue;
+                }
+                if ("[DONE]".equals(payload)) {
+                    break;
+                }
+                JsonNode root = objectMapper.readTree(payload);
+                JsonNode choices = root.path("choices");
+                if (!choices.isArray() || choices.size() == 0) {
+                    continue;
+                }
+                JsonNode delta = choices.get(0).path("delta");
+                if (delta.isMissingNode() || delta.isNull()) {
+                    continue;
+                }
+
+                emitDeltaChunks(delta, chunk -> {
+                    if (chunk.getKind() == StreamChunkKind.REASONING) {
+                        fullReasoning.append(chunk.getText());
+                    } else {
+                        fullContent.append(chunk.getText());
+                    }
+                    if (onChunk != null) {
+                        onChunk.onChunk(chunk);
+                    }
+                });
+
+                JsonNode toolCallsDelta = delta.path("tool_calls");
+                if (toolCallsDelta.isArray()) {
+                    for (JsonNode tc : toolCallsDelta) {
+                        mergeToolCallDelta(tc, toolAcc);
+                    }
+                }
+            }
+        } finally {
+            reader.close();
+            conn.disconnect();
+        }
+
+        List<LlmToolCall> toolCalls = finishToolCalls(toolAcc);
+        String text = fullContent.toString();
+        if (!toolCalls.isEmpty()) {
+            String contentForMsg = text.isEmpty() ? null : text;
+            Map<String, Object> assistantMessage = buildAssistantMessage(contentForMsg, toolCalls);
+            return new LlmCompletionResult(null, toolCalls, assistantMessage, null);
+        }
+        if (text == null || text.trim().isEmpty()) {
+            throw new IllegalStateException("LLM stream ended with empty content and no tool_calls");
+        }
+        Map<String, Object> assistantMessage = buildAssistantMessage(text, toolCalls);
+        String reasoningStr = fullReasoning.length() > 0 ? fullReasoning.toString() : null;
+        return new LlmCompletionResult(text, toolCalls, assistantMessage, reasoningStr);
+    }
+
     private static void mergeToolCallDelta(JsonNode tc, Map<Integer, ToolCallAccumulator> toolAcc) {
         int idx = tc.has("index") ? tc.path("index").asInt(0) : 0;
         ToolCallAccumulator acc = toolAcc.get(Integer.valueOf(idx));

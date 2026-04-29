@@ -979,7 +979,7 @@
                   <span class="chat-opt-switch" aria-hidden="true"></span>
                 </span>
               </label>
-              <label class="chat-opt" id="deepThinkingWrap" title="开启后展示并保留历史中的模型思考过程（需模型返回 reasoning，如 DeepSeek-R1）；关闭则仅显示最终回答。与「按需联网」同时开启时，工具轮次为非流式，思考与正文在工具完成后一次性推送">
+              <label class="chat-opt" id="deepThinkingWrap" title="仅影响本条发送：开启则向模型请求并保存思考过程（需 reasoning，如 DeepSeek-R1）；历史里每条是否带思考卡片由该条当时是否开启决定，与当前勾选无关。与「按需联网」同时开启时，思考与正文仍按流式增量展示（含工具轮次之间的模型输出）">
                 <input type="checkbox" id="deepThinkingToggle" class="chat-opt-input" />
                 <span class="chat-opt-body">
                   <span class="chat-opt-name">深度思考</span>
@@ -1001,7 +1001,7 @@
       var TOKEN_KEY = "agentGatewayJwt";
       /** 通用问答「按需联网」勾选状态，刷新后保留 */
       var WEB_SEARCH_PREF_KEY = "agentGatewayGenericWebSearch";
-      /** 通用问答「深度思考」展示开关，刷新后保留 */
+      /** 通用问答「深度思考」勾选默认值（仅影响下一条发送），刷新后保留 */
       var DEEP_THINKING_PREF_KEY = "agentGatewayGenericDeepThinking";
       if (typeof marked !== "undefined") {
         marked.setOptions({ breaks: true, gfm: true, mangle: false, headerIds: false });
@@ -1034,9 +1034,9 @@
       var deepThinkingWrap = document.getElementById("deepThinkingWrap");
       var deepThinkingToggle = document.getElementById("deepThinkingToggle");
 
-      /** 是否在界面展示思考过程（仅通用模式；服务端仍会保存 reasoning） */
-      function showDeepThinkingUi() {
-        return mode === "generic" && deepThinkingToggle && deepThinkingToggle.checked;
+      /** 本条助手消息是否含可展示的思考正文（由该次请求是否开启深度思考决定，与当前勾选无关） */
+      function messageHasReasoningToShow(m) {
+        return !!(m && m.reasoning && String(m.reasoning).trim());
       }
 
       function loadWebSearchPreference() {
@@ -1113,7 +1113,7 @@
         if (!m) return "";
         if (m.role === "user") return m.content || "";
         var parts = [];
-        if (m.reasoning && showDeepThinkingUi()) {
+        if (messageHasReasoningToShow(m)) {
           parts.push(m.reasoning);
         }
         if (m.content) {
@@ -1384,7 +1384,7 @@
               d.textContent = m.content || "";
             } else {
               var reasoningBlock = "";
-              if (m.reasoning && showDeepThinkingUi()) {
+              if (messageHasReasoningToShow(m)) {
                 reasoningBlock =
                   '<details class="msg-reasoning" open><summary>深度思考</summary><pre class="msg-reasoning-pre">' +
                   escapeHtmlText(m.reasoning) +
@@ -1398,7 +1398,7 @@
                 var html = markdownToSafeHtml(m.content || "", !!m.streaming);
                 if (html == null) {
                   d.textContent =
-                    (m.reasoning && showDeepThinkingUi() ? m.reasoning + "\n\n" : "") + (m.content || "");
+                    (messageHasReasoningToShow(m) ? m.reasoning + "\n\n" : "") + (m.content || "");
                 } else {
                   d.classList.add("md-body");
                   d.innerHTML = reasoningBlock + html;
@@ -1582,6 +1582,7 @@
         msg.value = "";
         msg.disabled = true;
 
+        var requestDeepThinking = mode === "generic" && !!(deepThinkingToggle && deepThinkingToggle.checked);
         var localRows = messagesByMode[mode] || [];
         localRows.push({ role: "user", content: text });
         localRows.push({ role: "assistant", content: "", reasoning: "", streaming: true });
@@ -1594,7 +1595,7 @@
         try {
           var payload = { message: text, conversationId: convByMode[mode] || undefined };
           if (mode === "generic") {
-            payload.deepThinking = !!(deepThinkingToggle && deepThinkingToggle.checked);
+            payload.deepThinking = requestDeepThinking;
             if (webSearchToggle && webSearchToggle.checked) {
               payload.webSearch = true;
             }
@@ -1640,7 +1641,7 @@
                   typeof obj.text === "string"
                 ) {
                   if (obj.type === "reasoning") {
-                    if (showDeepThinkingUi()) {
+                    if (requestDeepThinking) {
                       localRows[answerIndex].reasoning =
                         (localRows[answerIndex].reasoning || "") + obj.text;
                     }
@@ -1677,7 +1678,7 @@
                   typeof obj.text === "string"
                 ) {
                   if (obj.type === "reasoning") {
-                    if (showDeepThinkingUi()) {
+                    if (requestDeepThinking) {
                       localRows[answerIndex].reasoning =
                         (localRows[answerIndex].reasoning || "") + obj.text;
                     }

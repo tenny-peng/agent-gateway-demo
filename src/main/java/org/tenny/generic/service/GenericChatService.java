@@ -213,8 +213,9 @@ public class GenericChatService {
 
     /**
      * Stream answer tokens; when {@link StreamChatContext#isDeepThinking()} also streams and persists reasoning.
-     * With {@link StreamChatContext#isWebSearch()} and deep thinking, tool rounds use non-streaming completions so the
-     * final message can include {@code reasoning_content}; those chunks are then sent once over SSE (not token-delta).
+     * With {@link StreamChatContext#isWebSearch()} and deep thinking, each LLM round uses
+     * {@link LlmStreamClient#streamChatCompletionsWithToolsAndChunks} so reasoning and content deltas reach SSE
+     * incrementally (including after tool results).
      */
     public void streamWithContext(StreamChatContext ctx, LlmStreamClient.StreamChunkConsumer onChunk) throws IOException {
         if (ctx.isWebSearch()) {
@@ -337,8 +338,9 @@ public class GenericChatService {
     }
 
     /**
-     * {@link LlmStreamClient#streamChatCompletionsWithTools} does not parse {@code reasoning_content}; use the same
-     * non-streaming tool loop as {@link #chatWithWebSearchTool}, then emit reasoning/content over SSE for the UI.
+     * Web search + deep thinking: same tool loop as streaming without deep thinking, but each LLM round uses
+     * {@link LlmStreamClient#streamChatCompletionsWithToolsAndChunks} so {@code reasoning_content} and {@code content}
+     * stream incrementally (no long silent sync phase).
      */
     private void streamWithWebSearchToolsDeepThinking(
             StreamChatContext ctx,
@@ -348,9 +350,20 @@ public class GenericChatService {
             int max) throws IOException {
         int steps = 0;
         LlmCompletionResult result = null;
+        StringBuilder contentAcc = new StringBuilder();
+        StringBuilder reasoningAcc = new StringBuilder();
         while (steps < max) {
             steps++;
-            result = llmClient.chatCompletions(objMsgs, tools);
+            contentAcc.setLength(0);
+            reasoningAcc.setLength(0);
+            result = llmStreamClient.streamChatCompletionsWithToolsAndChunks(objMsgs, tools, chunk -> {
+                if (chunk.getKind() == StreamChunkKind.REASONING) {
+                    reasoningAcc.append(chunk.getText());
+                } else {
+                    contentAcc.append(chunk.getText());
+                }
+                onChunk.onChunk(chunk);
+            });
             if (result.hasToolCalls()) {
                 objMsgs.add(result.getAssistantMessage());
                 for (LlmToolCall call : result.getToolCalls()) {
@@ -372,14 +385,15 @@ public class GenericChatService {
             throw new IllegalStateException("Agent exceeded max steps (" + max + ") without final answer");
         }
 
-        String reasoning = result.getReasoning();
-        String answer = result.getContent();
-        if (reasoning != null && !reasoning.isEmpty()) {
-            onChunk.onChunk(new StreamTextChunk(StreamChunkKind.REASONING, reasoning));
+        String answer = result.getContent() != null ? result.getContent() : "";
+        String reasoningStored = result.getReasoning();
+        if (reasoningStored == null || reasoningStored.trim().isEmpty()) {
+            reasoningStored = reasoningAcc.length() > 0 ? reasoningAcc.toString() : null;
         }
-        onChunk.onChunk(new StreamTextChunk(StreamChunkKind.CONTENT, answer));
+        if (answer.trim().isEmpty()) {
+            answer = contentAcc.toString();
+        }
 
-        String reasoningStored = reasoning != null && !reasoning.isEmpty() ? reasoning : null;
         List<Map<String, String>> next = new ArrayList<Map<String, String>>(ctx.getMessages());
         next.add(assistantMessage(answer, reasoningStored));
         skillInjectService.stripSkillsFromChatMessages(next);
