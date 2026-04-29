@@ -367,6 +367,31 @@
       border: 1px solid var(--border);
     }
 
+    .msg-reasoning {
+      margin-bottom: 0.75rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.35rem 0.5rem;
+      background: var(--panel-2);
+    }
+    .msg-reasoning > summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--muted);
+      list-style: none;
+    }
+    .msg-reasoning > summary::-webkit-details-marker { display: none; }
+    .msg-reasoning-pre {
+      margin: 0.5rem 0 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+      color: var(--text);
+    }
+
     .msg.tool {
       justify-self: start;
       background: #fff3cd;
@@ -1029,12 +1054,19 @@
             if (m.plainText) {
               d.textContent = m.content || "";
             } else {
+              var reasoningBlock = "";
+              if (m.reasoning) {
+                reasoningBlock =
+                  '<details class="msg-reasoning"><summary>深度思考</summary><pre class="msg-reasoning-pre">' +
+                  escapeHtmlText(m.reasoning) +
+                  "</pre></details>";
+              }
               var html = markdownToSafeHtml(m.content || "", !!m.streaming);
               if (html == null) {
-                d.textContent = m.content || "";
+                d.textContent = (m.reasoning ? m.reasoning + "\n\n" : "") + (m.content || "");
               } else {
                 d.classList.add("md-body");
-                d.innerHTML = html;
+                d.innerHTML = reasoningBlock + html;
               }
             }
           } else {
@@ -1134,7 +1166,13 @@
         if (!res.ok) throw new Error("加载消息失败: HTTP " + res.status);
         var data = await res.json();
         messagesByMode[mode] = (data.items || []).map(function (x) {
-          return { role: x.role, content: x.content || "", seqNo: x.seqNo || 0, streaming: false };
+          return {
+            role: x.role,
+            content: x.content || "",
+            reasoning: x.reasoning || "",
+            seqNo: x.seqNo || 0,
+            streaming: false
+          };
         });
         renderMessages();
       }
@@ -1187,7 +1225,7 @@
 
         var localRows = messagesByMode[mode] || [];
         localRows.push({ role: "user", content: text });
-        localRows.push({ role: "assistant", content: "", streaming: true });
+        localRows.push({ role: "assistant", content: "", reasoning: "", streaming: true });
         messagesByMode[mode] = localRows;
         renderMessages();
         var answerIndex = localRows.length - 1;
@@ -1223,6 +1261,20 @@
                   convByMode[mode] = obj.conversationId;
                   return;
                 }
+                if (
+                  obj &&
+                  (obj.type === "reasoning" || obj.type === "content") &&
+                  typeof obj.text === "string"
+                ) {
+                  if (obj.type === "reasoning") {
+                    localRows[answerIndex].reasoning =
+                      (localRows[answerIndex].reasoning || "") + obj.text;
+                  } else {
+                    localRows[answerIndex].content += obj.text;
+                  }
+                  scheduleStreamRender();
+                  return;
+                }
               } catch (e) {
               }
               localRows[answerIndex].content += payload;
@@ -1231,6 +1283,23 @@
           }
           if (buf.length) {
             parseSseEvents(buf + "\n\n", function (payload) {
+              try {
+                var obj = JSON.parse(payload);
+                if (obj && obj.conversationId) return;
+                if (
+                  obj &&
+                  (obj.type === "reasoning" || obj.type === "content") &&
+                  typeof obj.text === "string"
+                ) {
+                  if (obj.type === "reasoning") {
+                    localRows[answerIndex].reasoning =
+                      (localRows[answerIndex].reasoning || "") + obj.text;
+                  } else {
+                    localRows[answerIndex].content += obj.text;
+                  }
+                  return;
+                }
+              } catch (e) {}
               localRows[answerIndex].content += payload;
             });
           }

@@ -21,6 +21,12 @@ public class ConversationMessageService {
     @Transactional
     public void appendMessage(long userId, String conversationId, SessionType sessionType,
                               String role, String content, String toolName, String titleCandidate) {
+        appendMessage(userId, conversationId, sessionType, role, content, toolName, titleCandidate, null);
+    }
+
+    @Transactional
+    public void appendMessage(long userId, String conversationId, SessionType sessionType,
+                              String role, String content, String toolName, String titleCandidate, String reasoning) {
         if (conversationId == null || conversationId.trim().isEmpty()) {
             return;
         }
@@ -34,6 +40,7 @@ public class ConversationMessageService {
                 nextSeqNo,
                 role,
                 text,
+                reasoning,
                 toolName);
         userConversationMapper.touchConversation(userId, convId, sessionType.name(), normalizeTitle(titleCandidate));
     }

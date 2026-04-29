@@ -104,12 +104,30 @@ public class LlmClient {
                 }
             }
 
+            String reasoning = null;
+            JsonNode reasoningNode = message.path("reasoning_content");
+            if (!reasoningNode.isNull() && !reasoningNode.isMissingNode()) {
+                reasoning = reasoningNode.asText(null);
+                if (reasoning != null && reasoning.isEmpty()) {
+                    reasoning = null;
+                }
+            }
+            if (reasoning == null) {
+                JsonNode thinkingNode = message.path("thinking");
+                if (!thinkingNode.isNull() && !thinkingNode.isMissingNode()) {
+                    reasoning = thinkingNode.asText(null);
+                    if (reasoning != null && reasoning.isEmpty()) {
+                        reasoning = null;
+                    }
+                }
+            }
+
             List<LlmToolCall> toolCalls = parseToolCalls(message.path("tool_calls"));
 
             Map<String, Object> assistantMessage = objectMapper.convertValue(
                     message, new TypeReference<Map<String, Object>>() { });
 
-            return new LlmCompletionResult(content, toolCalls, assistantMessage);
+            return new LlmCompletionResult(content, toolCalls, assistantMessage, reasoning);
         } catch (HttpStatusCodeException e) {
             String detail = e.getResponseBodyAsString();
             if (e.getStatusCode().is4xxClientError()) {

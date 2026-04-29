@@ -17,6 +17,7 @@ public class ConversationMessagesResponse {
         private int seqNo;
         private String role;
         private String content;
+        private String reasoning;
         private String createdAt;
 
         public int getSeqNo() {
@@ -41,6 +42,14 @@ public class ConversationMessagesResponse {
 
         public void setContent(String content) {
             this.content = content;
+        }
+
+        public String getReasoning() {
+            return reasoning;
+        }
+
+        public void setReasoning(String reasoning) {
+            this.reasoning = reasoning;
         }
 
         public String getCreatedAt() {

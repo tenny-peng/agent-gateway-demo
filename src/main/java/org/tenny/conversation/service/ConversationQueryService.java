@@ -74,6 +74,7 @@ public class ConversationQueryService {
             item.setSeqNo(row.getSeqNo() == null ? 0 : row.getSeqNo().intValue());
             item.setRole(row.getRole());
             item.setContent(row.getContent());
+            item.setReasoning(row.getReasoning());
             item.setCreatedAt(row.getCreatedAt() == null ? null : TS_FMT.format(row.getCreatedAt()));
             items.add(item);
         }

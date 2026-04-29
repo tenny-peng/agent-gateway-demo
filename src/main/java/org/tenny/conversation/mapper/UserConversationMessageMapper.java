@@ -17,17 +17,18 @@ public interface UserConversationMessageMapper extends BaseMapper<UserConversati
                        @Param("sessionType") String sessionType);
 
     @Insert("INSERT INTO user_conversation_message "
-            + "(user_id, conversation_id, session_type, seq_no, role, content, tool_name) "
-            + "VALUES (#{userId}, #{conversationId}, #{sessionType}, #{seqNo}, #{role}, #{content}, #{toolName})")
+            + "(user_id, conversation_id, session_type, seq_no, role, content, reasoning, tool_name) "
+            + "VALUES (#{userId}, #{conversationId}, #{sessionType}, #{seqNo}, #{role}, #{content}, #{reasoning}, #{toolName})")
     int insertMessage(@Param("userId") long userId,
                       @Param("conversationId") String conversationId,
                       @Param("sessionType") String sessionType,
                       @Param("seqNo") int seqNo,
                       @Param("role") String role,
                       @Param("content") String content,
+                      @Param("reasoning") String reasoning,
                       @Param("toolName") String toolName);
 
-    @Select("SELECT id, user_id, conversation_id, session_type, seq_no, role, content, tool_name, created_at "
+    @Select("SELECT id, user_id, conversation_id, session_type, seq_no, role, content, reasoning, tool_name, created_at "
             + "FROM user_conversation_message "
             + "WHERE user_id = #{userId} AND conversation_id = #{conversationId} AND session_type = #{sessionType} "
             + "ORDER BY seq_no ASC LIMIT #{limit}")
@@ -36,7 +37,7 @@ public interface UserConversationMessageMapper extends BaseMapper<UserConversati
                                                  @Param("sessionType") String sessionType,
                                                  @Param("limit") int limit);
 
-    @Select("SELECT id, user_id, conversation_id, session_type, seq_no, role, content, tool_name, created_at "
+    @Select("SELECT id, user_id, conversation_id, session_type, seq_no, role, content, reasoning, tool_name, created_at "
             + "FROM user_conversation_message "
             + "WHERE user_id = #{userId} AND conversation_id = #{conversationId} AND session_type = #{sessionType} "
             + "AND seq_no < #{beforeSeqNo} ORDER BY seq_no ASC LIMIT #{limit}")

@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS user_conversation_message (
   seq_no INT NOT NULL,
   role VARCHAR(16) NOT NULL,
   content MEDIUMTEXT NOT NULL,
+  reasoning MEDIUMTEXT NULL COMMENT 'Optional chain-of-thought from reasoning models (not sent back to LLM API).',
   tool_name VARCHAR(64) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),

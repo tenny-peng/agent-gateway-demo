@@ -35,6 +35,9 @@ public class UserConversationMessage {
     @TableField("content")
     private String content;
 
+    @TableField("reasoning")
+    private String reasoning;
+
     @TableField("tool_name")
     private String toolName;
 

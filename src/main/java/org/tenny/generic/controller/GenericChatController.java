@@ -1,5 +1,6 @@
 package org.tenny.generic.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
@@ -13,8 +14,12 @@ import org.tenny.generic.dto.ChatRequest;
 import org.tenny.generic.dto.ChatResponse;
 import org.tenny.generic.service.GenericChatService;
 
+import org.tenny.common.helper.llmclient.dto.StreamChunkKind;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -28,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class GenericChatController {
 
     private final GenericChatService genericChatService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping("/chat")
     public ChatResponse chat(@Valid @RequestBody ChatRequest request, HttpServletRequest httpRequest) {
@@ -39,7 +45,6 @@ public class GenericChatController {
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@Valid @RequestBody ChatRequest request, HttpServletRequest httpRequest) {
         SseEmitter emitter = new SseEmitter(0L);
-        MediaType textUtf8 = MediaType.parseMediaType("text/plain;charset=UTF-8");
         MediaType jsonUtf8 = MediaType.parseMediaType("application/json;charset=UTF-8");
         AuthPrincipal principal = (AuthPrincipal) httpRequest.getAttribute(AuthPrincipal.REQUEST_ATTR);
         
@@ -69,12 +74,14 @@ public class GenericChatController {
                         request.getWebSearch());
                 String meta = "{\"conversationId\":\"" + ctx.getConversationId() + "\"}";
                 emitter.send(SseEmitter.event().data(meta, jsonUtf8));
-                genericChatService.streamWithContext(ctx, piece -> {
-                    // 检查是否已被中断
+                genericChatService.streamWithContext(ctx, chunk -> {
                     if (isCompleted.get()) {
                         throw new RuntimeException("Stream interrupted");
                     }
-                    emitter.send(SseEmitter.event().data(piece, textUtf8));
+                    Map<String, String> envelope = new LinkedHashMap<String, String>();
+                    envelope.put("type", chunk.getKind() == StreamChunkKind.REASONING ? "reasoning" : "content");
+                    envelope.put("text", chunk.getText());
+                    emitter.send(SseEmitter.event().data(objectMapper.writeValueAsString(envelope), jsonUtf8));
                 });
                 emitter.complete();
             } catch (Exception e) {

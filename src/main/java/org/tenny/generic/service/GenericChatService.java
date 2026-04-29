@@ -12,6 +12,8 @@ import org.tenny.conversation.service.ConversationMessageService;
 import org.tenny.conversation.service.ConversationTrackingService;
 import org.tenny.common.helper.llmclient.LlmClient;
 import org.tenny.common.helper.llmclient.LlmStreamClient;
+import org.tenny.common.helper.llmclient.dto.LlmCompletionResult;
+import org.tenny.common.helper.llmclient.dto.StreamChunkKind;
 import org.tenny.common.session.ConversationStore;
 import org.tenny.generic.dto.ChatResponse;
 import org.tenny.common.exception.ChatLimitExceededException;
@@ -84,20 +86,34 @@ public class GenericChatService {
 
         skillInjectService.augmentChatSystem(messages, userMessage, userId);
 
-        List<Map<String, String>> forLlm = new ArrayList<Map<String, String>>(messages);
+        List<Map<String, String>> forLlm = messagesForLlmApi(new ArrayList<Map<String, String>>(messages));
         injectWebSearchContext(forLlm, userMessage, Boolean.TRUE.equals(webSearch));
 
+        List<Map<String, Object>> asObject = new ArrayList<Map<String, Object>>();
+        for (Map<String, String> row : forLlm) {
+            asObject.add(new HashMap<String, Object>(row));
+        }
+
         long start = System.currentTimeMillis();
-        String answer = llmClient.chatCompletions(forLlm);
+        LlmCompletionResult result = llmClient.chatCompletions(asObject, null);
         long latency = System.currentTimeMillis() - start;
+        if (result.hasToolCalls()) {
+            throw new IllegalStateException("Model returned tool_calls but simple chat mode does not handle them");
+        }
+        String answer = result.getContent();
+        if (answer == null || answer.trim().isEmpty()) {
+            throw new IllegalStateException("LLM response missing message.content");
+        }
+        String reasoning = result.getReasoning();
 
         List<Map<String, String>> toSave = new ArrayList<Map<String, String>>(messages);
-        toSave.add(assistantMessage(answer));
+        toSave.add(assistantMessage(answer, reasoning));
         conversationStore.putChatMessages(id, toSave);
         conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "user", userMessage, null, userMessage);
-        conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "assistant", answer, null, userMessage);
+        conversationMessageService.appendMessage(
+                userId, id, SessionType.GENERIC, "assistant", answer, null, userMessage, reasoning);
 
-        return new ChatResponse(answer, llmConfigService.getActiveConfig().getModel(), latency, id);
+        return new ChatResponse(answer, reasoning, llmConfigService.getActiveConfig().getModel(), latency, id);
     }
 
     /**
@@ -127,24 +143,51 @@ public class GenericChatService {
     }
 
     /**
-     * Stream tokens then append assistant text to the session.
+     * Stream reasoning and answer tokens, then append assistant message to the session.
      */
-    public void streamWithContext(StreamChatContext ctx, LlmStreamClient.StreamDeltaConsumer onDelta) throws IOException {
-        List<Map<String, String>> forLlm = new ArrayList<Map<String, String>>(ctx.getMessages());
+    public void streamWithContext(StreamChatContext ctx, LlmStreamClient.StreamChunkConsumer onChunk) throws IOException {
+        List<Map<String, String>> forLlm = messagesForLlmApi(new ArrayList<Map<String, String>>(ctx.getMessages()));
         injectWebSearchContext(forLlm, ctx.getUserMessage(), ctx.isWebSearch());
-        StringBuilder acc = new StringBuilder();
-        llmStreamClient.streamChatCompletions(forLlm, piece -> {
-            acc.append(piece);
-            onDelta.onDelta(piece);
+        StringBuilder reasoningAcc = new StringBuilder();
+        StringBuilder contentAcc = new StringBuilder();
+        llmStreamClient.streamChatCompletionsWithChunks(forLlm, chunk -> {
+            if (chunk.getKind() == StreamChunkKind.REASONING) {
+                reasoningAcc.append(chunk.getText());
+            } else {
+                contentAcc.append(chunk.getText());
+            }
+            onChunk.onChunk(chunk);
         });
         List<Map<String, String>> next = new ArrayList<Map<String, String>>(ctx.getMessages());
-        next.add(assistantMessage(acc.toString()));
+        next.add(assistantMessage(contentAcc.toString(), reasoningAcc.length() > 0 ? reasoningAcc.toString() : null));
         skillInjectService.stripSkillsFromChatMessages(next);
         conversationStore.putChatMessages(ctx.getConversationId(), next);
         conversationMessageService.appendMessage(
                 ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null, ctx.getUserMessage());
         conversationMessageService.appendMessage(
-                ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "assistant", acc.toString(), null, ctx.getUserMessage());
+                ctx.getUserId(),
+                ctx.getConversationId(),
+                SessionType.GENERIC,
+                "assistant",
+                contentAcc.toString(),
+                null,
+                ctx.getUserMessage(),
+                reasoningAcc.length() > 0 ? reasoningAcc.toString() : null);
+    }
+
+    /**
+     * Keeps only {@code role} and {@code content} for OpenAI-compatible APIs (drops stored {@code reasoning}, etc.).
+     */
+    private static List<Map<String, String>> messagesForLlmApi(List<Map<String, String>> messages) {
+        List<Map<String, String>> out = new ArrayList<Map<String, String>>();
+        for (Map<String, String> row : messages) {
+            Map<String, String> m = new HashMap<String, String>();
+            m.put("role", row.get("role"));
+            String c = row.get("content");
+            m.put("content", c != null ? c : "");
+            out.add(m);
+        }
+        return out;
     }
 
     @Getter
@@ -239,10 +282,13 @@ public class GenericChatService {
         return m;
     }
 
-    private static Map<String, String> assistantMessage(String text) {
+    private static Map<String, String> assistantMessage(String text, String reasoning) {
         Map<String, String> m = new HashMap<String, String>();
         m.put("role", "assistant");
         m.put("content", text);
+        if (reasoning != null && !reasoning.isEmpty()) {
+            m.put("reasoning", reasoning);
+        }
         return m;
     }
 
@@ -258,7 +304,7 @@ public class GenericChatService {
             if ("user".equals(row.getRole())) {
                 restored.add(userMessage(row.getContent()));
             } else if ("assistant".equals(row.getRole())) {
-                restored.add(assistantMessage(row.getContent()));
+                restored.add(assistantMessage(row.getContent(), row.getReasoning()));
             }
         }
         conversationStore.putChatMessages(conversationId, restored);

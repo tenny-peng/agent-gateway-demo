@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.tenny.common.helper.llmclient.dto.LlmCompletionResult;
 import org.tenny.common.helper.llmclient.dto.LlmToolCall;
+import org.tenny.common.helper.llmclient.dto.StreamChunkKind;
+import org.tenny.common.helper.llmclient.dto.StreamTextChunk;
 import org.tenny.llmconfig.entity.LlmConfig;
 import org.tenny.llmconfig.service.LlmConfigService;
 import org.tenny.common.utils.LlmKeyUtil;
@@ -34,8 +36,22 @@ public class LlmStreamClient {
     private final ObjectMapper objectMapper;
     /**
      * Calls chat/completions with stream=true and invokes consumer for each text delta (may be empty chunks; caller can ignore).
+     * Reasoning deltas (e.g. {@code reasoning_content}) are not passed to the consumer.
      */
     public void streamChatCompletions(List<Map<String, String>> messages, StreamDeltaConsumer onDelta)
+            throws IOException {
+        streamChatCompletionsWithChunks(messages, chunk -> {
+            if (chunk.getKind() == StreamChunkKind.CONTENT && !chunk.getText().isEmpty()) {
+                onDelta.onDelta(chunk.getText());
+            }
+        });
+    }
+
+    /**
+     * Streaming chat: invokes {@code onChunk} for {@link StreamChunkKind#REASONING} (e.g. DeepSeek {@code reasoning_content})
+     * and {@link StreamChunkKind#CONTENT} separately.
+     */
+    public void streamChatCompletionsWithChunks(List<Map<String, String>> messages, StreamChunkConsumer onChunk)
             throws IOException {
         LlmConfig activeConfig = llmConfigService.getActiveConfig();
         String apiKey = LlmKeyUtil.normalizeApiKey(activeConfig.getApiKey());
@@ -100,19 +116,34 @@ public class LlmStreamClient {
                 if (delta.isMissingNode() || delta.isNull()) {
                     continue;
                 }
-                JsonNode contentNode = delta.path("content");
-                if (contentNode.isMissingNode() || contentNode.isNull()) {
-                    continue;
-                }
-                String piece = contentNode.asText("");
-                if (!piece.isEmpty()) {
-                    onDelta.onDelta(piece);
-                }
+                emitDeltaChunks(delta, onChunk);
             }
         } finally {
             reader.close();
             conn.disconnect();
         }
+    }
+
+    private static void emitDeltaChunks(JsonNode delta, StreamChunkConsumer onChunk) throws IOException {
+        String reasoning = deltaText(delta, "reasoning_content");
+        if (reasoning.isEmpty()) {
+            reasoning = deltaText(delta, "thinking");
+        }
+        if (!reasoning.isEmpty()) {
+            onChunk.onChunk(new StreamTextChunk(StreamChunkKind.REASONING, reasoning));
+        }
+        String content = deltaText(delta, "content");
+        if (!content.isEmpty()) {
+            onChunk.onChunk(new StreamTextChunk(StreamChunkKind.CONTENT, content));
+        }
+    }
+
+    private static String deltaText(JsonNode delta, String field) {
+        JsonNode n = delta.path(field);
+        if (n.isMissingNode() || n.isNull()) {
+            return "";
+        }
+        return n.asText("");
     }
 
     /**
@@ -193,14 +224,11 @@ public class LlmStreamClient {
                     continue;
                 }
 
-                JsonNode contentNode = delta.path("content");
-                if (!contentNode.isMissingNode() && !contentNode.isNull()) {
-                    String piece = contentNode.asText("");
-                    if (!piece.isEmpty()) {
-                        fullContent.append(piece);
-                        if (onContentDelta != null) {
-                            onContentDelta.onDelta(piece);
-                        }
+                String contentPiece = deltaText(delta, "content");
+                if (!contentPiece.isEmpty()) {
+                    fullContent.append(contentPiece);
+                    if (onContentDelta != null) {
+                        onContentDelta.onDelta(contentPiece);
                     }
                 }
 
@@ -221,13 +249,13 @@ public class LlmStreamClient {
         if (!toolCalls.isEmpty()) {
             String contentForMsg = text.isEmpty() ? null : text;
             Map<String, Object> assistantMessage = buildAssistantMessage(contentForMsg, toolCalls);
-            return new LlmCompletionResult(null, toolCalls, assistantMessage);
+            return new LlmCompletionResult(null, toolCalls, assistantMessage, null);
         }
         if (text == null || text.trim().isEmpty()) {
             throw new IllegalStateException("LLM stream ended with empty content and no tool_calls");
         }
         Map<String, Object> assistantMessage = buildAssistantMessage(text, toolCalls);
-        return new LlmCompletionResult(text, toolCalls, assistantMessage);
+        return new LlmCompletionResult(text, toolCalls, assistantMessage, null);
     }
 
     private static void mergeToolCallDelta(JsonNode tc, Map<Integer, ToolCallAccumulator> toolAcc) {
@@ -316,5 +344,10 @@ public class LlmStreamClient {
     @FunctionalInterface
     public interface StreamDeltaConsumer {
         void onDelta(String text) throws IOException;
+    }
+
+    @FunctionalInterface
+    public interface StreamChunkConsumer {
+        void onChunk(StreamTextChunk chunk) throws IOException;
     }
 }
