@@ -1354,12 +1354,19 @@
       }
       function renderMessages() {
         var rows = messagesByMode[mode] || [];
-        messagesDom.innerHTML = "";
+        var el = messagesDom;
+        var hadOverflow = el.scrollHeight > el.clientHeight;
+        var nearBottom =
+          !hadOverflow || el.scrollHeight - el.scrollTop - el.clientHeight <= 64;
+        var scrollRatio = hadOverflow
+          ? el.scrollTop / Math.max(1, el.scrollHeight - el.clientHeight)
+          : 1;
+        el.innerHTML = "";
         if (!rows.length) {
           var empty = document.createElement("div");
           empty.className = "conv-empty";
           empty.textContent = "开始一段新对话吧";
-          messagesDom.appendChild(empty);
+          el.appendChild(empty);
           return;
         }
         rows.forEach(function (m) {
@@ -1421,9 +1428,13 @@
           stack.appendChild(d);
           stack.appendChild(actionsRow);
           wrap.appendChild(stack);
-          messagesDom.appendChild(wrap);
+          el.appendChild(wrap);
         });
-        messagesDom.scrollTop = messagesDom.scrollHeight;
+        if (nearBottom) {
+          el.scrollTop = el.scrollHeight;
+        } else if (el.scrollHeight > el.clientHeight) {
+          el.scrollTop = scrollRatio * Math.max(0, el.scrollHeight - el.clientHeight);
+        }
       }
       function renderConversationList() {
         var list = convListByMode[mode] || [];
