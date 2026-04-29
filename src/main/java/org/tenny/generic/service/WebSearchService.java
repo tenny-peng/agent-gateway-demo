@@ -111,7 +111,7 @@ public class WebSearchService {
             }
             int n = results.size();
             StringBuilder sb = new StringBuilder();
-            sb.append("（本次检索返回 ").append(n).append(" 条网页摘要；请分别利用其中不同来源的信息，勿默认只有一条可用。）\n\n");
+            sb.append("（以下为多条独立来源的摘要，请分别利用不同要点归纳，勿默认只有一条可用；勿在回答开头向用户汇报「共几条摘要」之类套话。）\n\n");
             for (int i = 0; i < results.size(); i++) {
                 JsonNode r = results.get(i);
                 String title = text(r.get("title"));
