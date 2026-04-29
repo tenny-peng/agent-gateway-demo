@@ -10,9 +10,28 @@ import org.tenny.llmconfig.mapper.LlmConfigMapper;
 import org.tenny.llmconfig.service.LlmConfigService;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class LlmConfigServiceImpl extends ServiceImpl<LlmConfigMapper, LlmConfig> implements LlmConfigService {
+
+    /**
+     * Present entry means cache is loaded (value may be null if no row has is_active=true).
+     * Null reference on the AtomicReference means invalidated / not yet loaded.
+     */
+    private static final class ActiveCacheEntry {
+        private final LlmConfig config;
+
+        private ActiveCacheEntry(LlmConfig config) {
+            this.config = config;
+        }
+    }
+
+    private final AtomicReference<ActiveCacheEntry> activeConfigCache = new AtomicReference<>();
+
+    private void invalidateActiveConfig() {
+        activeConfigCache.set(null);
+    }
 
     @Override
     public LlmConfig getConfigByName(String name) {
@@ -26,6 +45,7 @@ public class LlmConfigServiceImpl extends ServiceImpl<LlmConfigMapper, LlmConfig
         }
         llmConfig.setCreatedAt(LocalDateTime.now());
         this.save(llmConfig);
+        invalidateActiveConfig();
         return llmConfig;
     }
 
@@ -36,13 +56,26 @@ public class LlmConfigServiceImpl extends ServiceImpl<LlmConfigMapper, LlmConfig
 
     @Override
     public LlmConfig getActiveConfig() {
-        return getOne(new LambdaQueryWrapper<LlmConfig>().eq(LlmConfig::getIsActive, true));
+        ActiveCacheEntry entry = activeConfigCache.get();
+        if (entry != null) {
+            return entry.config;
+        }
+        synchronized (this) {
+            entry = activeConfigCache.get();
+            if (entry != null) {
+                return entry.config;
+            }
+            LlmConfig loaded = getBaseMapper().selectActiveConfig();
+            activeConfigCache.set(new ActiveCacheEntry(loaded));
+            return loaded;
+        }
     }
 
     @Override
     public LlmConfig updateConfig(Long id, LlmConfig config) {
         config.setId(id);
         updateById(config);
+        invalidateActiveConfig();
         return getById(id);
     }
 
@@ -57,12 +90,14 @@ public class LlmConfigServiceImpl extends ServiceImpl<LlmConfigMapper, LlmConfig
         targetWrapper.eq(LlmConfig::getId, id)
                 .set(LlmConfig::getIsActive, true);
         update(targetWrapper);
+        invalidateActiveConfig();
         return getById(id);
     }
 
     @Override
     public void deleteConfig(Long id) {
         removeById(id);
+        invalidateActiveConfig();
     }
 
 }
