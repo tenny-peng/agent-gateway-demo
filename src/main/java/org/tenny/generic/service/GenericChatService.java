@@ -153,6 +153,8 @@ public class GenericChatService {
                     toolMsg.put("tool_call_id", call.getId());
                     toolMsg.put("content", payload);
                     objMsgs.add(toolMsg);
+                    conversationMessageService.appendMessage(
+                            userId, id, SessionType.GENERIC, "tool", payload, call.getName(), userMessage);
                 }
                 continue;
             }
@@ -324,6 +326,14 @@ public class GenericChatService {
                     toolMsg.put("tool_call_id", call.getId());
                     toolMsg.put("content", payload);
                     objMsgs.add(toolMsg);
+                    conversationMessageService.appendMessage(
+                            ctx.getUserId(),
+                            ctx.getConversationId(),
+                            SessionType.GENERIC,
+                            "tool",
+                            payload,
+                            call.getName(),
+                            ctx.getUserMessage());
                 }
                 continue;
             }
@@ -387,6 +397,14 @@ public class GenericChatService {
                     toolMsg.put("tool_call_id", call.getId());
                     toolMsg.put("content", payload);
                     objMsgs.add(toolMsg);
+                    conversationMessageService.appendMessage(
+                            ctx.getUserId(),
+                            ctx.getConversationId(),
+                            SessionType.GENERIC,
+                            "tool",
+                            payload,
+                            call.getName(),
+                            ctx.getUserMessage());
                 }
                 continue;
             }
@@ -510,6 +528,10 @@ public class GenericChatService {
         return m;
     }
 
+    /**
+     * Rebuilds Redis chat history from DB. Rows with {@code role=tool} (and {@code tool_name}) are kept for audit
+     * but not replayed here—same as logistics {@code restoreAgentMessages}: tool context is not reconstructed from DB.
+     */
     private List<Map<String, String>> restoreChatMessages(long userId, String conversationId) {
         List<UserConversationMessage> rows = userConversationMessageMapper.selectMessages(
                 userId, conversationId, SessionType.GENERIC.name(), 2000);
