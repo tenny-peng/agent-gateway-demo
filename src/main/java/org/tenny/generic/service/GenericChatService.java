@@ -13,6 +13,7 @@ import org.tenny.conversation.service.ConversationTrackingService;
 import org.tenny.common.helper.llmclient.LlmClient;
 import org.tenny.common.helper.llmclient.LlmStreamClient;
 import org.tenny.common.helper.llmclient.dto.LlmCompletionResult;
+import org.tenny.common.helper.llmclient.dto.LlmToolCall;
 import org.tenny.common.helper.llmclient.dto.StreamChunkKind;
 import org.tenny.common.helper.llmclient.dto.StreamTextChunk;
 import org.tenny.common.session.ConversationStore;
@@ -20,6 +21,9 @@ import org.tenny.generic.dto.ChatResponse;
 import org.tenny.common.exception.ChatLimitExceededException;
 import org.tenny.llmconfig.service.LlmConfigService;
 import org.tenny.skill.service.SkillInjectService;
+import org.tenny.common.config.AgentProperties;
+import org.tenny.generic.tool.WebSearchQueryTool;
+import org.tenny.generic.tool.WebSearchToolDefinitions;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,13 +32,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Generic chat (no tools): multi-turn plain LLM completion + optional RAG on system.
+ * Generic chat: multi-turn plain LLM completion; optional {@code web_search} tool when user enables web search.
  */
 @Service
 @RequiredArgsConstructor
 public class GenericChatService {
 
     private static final String CHAT_SYSTEM_BASE = "You are a helpful assistant.";
+
+    private static final String WEB_SEARCH_SYSTEM_APPEND =
+            "\n\n【联网】已为你注册 web_search 工具：仅在需要最新网页事实、新闻、价格、时效信息时调用；"
+                    + "用户问候、自我介绍、纯逻辑或与网页无关的问题不要调用该工具。";
 
     private final LlmClient llmClient;
     private final LlmStreamClient llmStreamClient;
@@ -45,7 +53,8 @@ public class GenericChatService {
     private final ConversationMessageService conversationMessageService;
     private final UserConversationMessageMapper userConversationMessageMapper;
     private final AppUserMapper appUserMapper;
-    private final WebSearchService webSearchService;
+    private final AgentProperties agentProperties;
+    private final WebSearchQueryTool webSearchQueryTool;
 
     private void checkChatLimit(long userId) {
         AppUser user = appUserMapper.selectById(userId);
@@ -62,10 +71,11 @@ public class GenericChatService {
     }
 
     /**
-     * Plain chat (no tools). Pass {@code conversationId} from the previous {@link ChatResponse} to continue.
+     * Plain chat. Pass {@code conversationId} from the previous {@link ChatResponse} to continue.
      *
-     * @param webSearch when {@link Boolean#TRUE}, runs web search and injects snippets for this turn only (not stored in history).
-     * @param deepThinking when {@link Boolean#TRUE}, persists and returns model {@code reasoning_content} when present.
+     * @param webSearch when {@link Boolean#TRUE}, exposes {@code web_search} tool so the model may retrieve web snippets.
+     * @param deepThinking when {@link Boolean#TRUE}, persists and returns model {@code reasoning_content} when present
+     *        (not populated on intermediate tool rounds; with {@code webSearch} only the final completion may carry it).
      */
     public ChatResponse chat(String userMessage, String conversationId, long userId, Boolean webSearch,
                              Boolean deepThinking) {
@@ -89,15 +99,17 @@ public class GenericChatService {
 
         skillInjectService.augmentChatSystem(messages, userMessage, userId);
 
-        List<Map<String, String>> forLlm = messagesForLlmApi(new ArrayList<Map<String, String>>(messages));
-        injectWebSearchContext(forLlm, userMessage, Boolean.TRUE.equals(webSearch));
+        long start = System.currentTimeMillis();
+        if (Boolean.TRUE.equals(webSearch)) {
+            return chatWithWebSearchTool(id, messages, userMessage, userId, deepThinking, start);
+        }
 
+        List<Map<String, String>> forLlm = messagesForLlmApi(new ArrayList<Map<String, String>>(messages));
         List<Map<String, Object>> asObject = new ArrayList<Map<String, Object>>();
         for (Map<String, String> row : forLlm) {
             asObject.add(new HashMap<String, Object>(row));
         }
 
-        long start = System.currentTimeMillis();
         LlmCompletionResult result = llmClient.chatCompletions(asObject, null);
         long latency = System.currentTimeMillis() - start;
         if (result.hasToolCalls()) {
@@ -117,6 +129,59 @@ public class GenericChatService {
                 userId, id, SessionType.GENERIC, "assistant", answer, null, userMessage, reasoning);
 
         return new ChatResponse(answer, reasoning, llmConfigService.getActiveConfig().getModel(), latency, id);
+    }
+
+    private ChatResponse chatWithWebSearchTool(String id, List<Map<String, String>> messages, String userMessage,
+                                               long userId, Boolean deepThinking, long start) {
+        List<Map<String, Object>> objMsgs =
+                stringMessagesToObjectMessages(messagesForLlmApi(new ArrayList<Map<String, String>>(messages)));
+        augmentFirstSystemForWebSearchTool(objMsgs);
+        List<Map<String, Object>> tools = WebSearchToolDefinitions.webSearchToolsDefinition();
+        int max = Math.max(1, agentProperties.getMaxSteps());
+        int steps = 0;
+        LlmCompletionResult result = null;
+        while (steps < max) {
+            steps++;
+            result = llmClient.chatCompletions(objMsgs, tools);
+            if (result.hasToolCalls()) {
+                objMsgs.add(result.getAssistantMessage());
+                for (LlmToolCall call : result.getToolCalls()) {
+                    String payload = executeWebSearchTool(call.getName(), call.getArguments());
+                    Map<String, Object> toolMsg = new HashMap<String, Object>();
+                    toolMsg.put("role", "tool");
+                    toolMsg.put("tool_call_id", call.getId());
+                    toolMsg.put("content", payload);
+                    objMsgs.add(toolMsg);
+                }
+                continue;
+            }
+            if (result.getContent() != null && !result.getContent().trim().isEmpty()) {
+                break;
+            }
+            throw new IllegalStateException("LLM returned empty content and no tool_calls; raw=" + result.getAssistantMessage());
+        }
+        if (result == null || result.getContent() == null || result.getContent().trim().isEmpty()) {
+            throw new IllegalStateException("Agent exceeded max steps (" + max + ") without final answer");
+        }
+        String answer = result.getContent();
+        String reasoning = Boolean.TRUE.equals(deepThinking) ? result.getReasoning() : null;
+        long latency = System.currentTimeMillis() - start;
+
+        List<Map<String, String>> toSave = new ArrayList<Map<String, String>>(messages);
+        toSave.add(assistantMessage(answer, reasoning));
+        conversationStore.putChatMessages(id, toSave);
+        conversationMessageService.appendMessage(userId, id, SessionType.GENERIC, "user", userMessage, null, userMessage);
+        conversationMessageService.appendMessage(
+                userId, id, SessionType.GENERIC, "assistant", answer, null, userMessage, reasoning);
+
+        return new ChatResponse(answer, reasoning, llmConfigService.getActiveConfig().getModel(), latency, id);
+    }
+
+    private String executeWebSearchTool(String name, String argumentsJson) {
+        if (WebSearchQueryTool.NAME.equals(name)) {
+            return webSearchQueryTool.execute(argumentsJson);
+        }
+        return "{\"error\":\"unknown_tool\"}";
     }
 
     /**
@@ -148,12 +213,16 @@ public class GenericChatService {
 
     /**
      * Stream answer tokens; when {@link StreamChatContext#isDeepThinking()} also streams and persists reasoning.
-     * Note: upstream may still emit reasoning in the HTTP body; when deep thinking is off we only parse {@code content}
-     * deltas (see {@link LlmStreamClient#streamChatCompletions}) — that saves persistence and SSE bandwidth, not necessarily provider billing.
+     * With {@link StreamChatContext#isWebSearch()} and deep thinking, tool rounds use non-streaming completions so the
+     * final message can include {@code reasoning_content}; those chunks are then sent once over SSE (not token-delta).
      */
     public void streamWithContext(StreamChatContext ctx, LlmStreamClient.StreamChunkConsumer onChunk) throws IOException {
+        if (ctx.isWebSearch()) {
+            streamWithWebSearchTools(ctx, onChunk);
+            return;
+        }
+
         List<Map<String, String>> forLlm = messagesForLlmApi(new ArrayList<Map<String, String>>(ctx.getMessages()));
-        injectWebSearchContext(forLlm, ctx.getUserMessage(), ctx.isWebSearch());
         StringBuilder contentAcc = new StringBuilder();
         if (ctx.isDeepThinking()) {
             StringBuilder reasoningAcc = new StringBuilder();
@@ -206,6 +275,156 @@ public class GenericChatService {
         }
     }
 
+    private void streamWithWebSearchTools(StreamChatContext ctx, LlmStreamClient.StreamChunkConsumer onChunk)
+            throws IOException {
+        List<Map<String, Object>> objMsgs =
+                stringMessagesToObjectMessages(messagesForLlmApi(new ArrayList<Map<String, String>>(ctx.getMessages())));
+        augmentFirstSystemForWebSearchTool(objMsgs);
+        List<Map<String, Object>> tools = WebSearchToolDefinitions.webSearchToolsDefinition();
+        int max = Math.max(1, agentProperties.getMaxSteps());
+
+        if (ctx.isDeepThinking()) {
+            streamWithWebSearchToolsDeepThinking(ctx, onChunk, objMsgs, tools, max);
+            return;
+        }
+
+        int steps = 0;
+        StringBuilder contentAcc = new StringBuilder();
+        LlmCompletionResult result = null;
+        while (steps < max) {
+            steps++;
+            result = llmStreamClient.streamChatCompletionsWithTools(objMsgs, tools, piece -> {
+                contentAcc.append(piece);
+                onChunk.onChunk(new StreamTextChunk(StreamChunkKind.CONTENT, piece));
+            });
+            if (result.hasToolCalls()) {
+                objMsgs.add(result.getAssistantMessage());
+                for (LlmToolCall call : result.getToolCalls()) {
+                    String payload = executeWebSearchTool(call.getName(), call.getArguments());
+                    Map<String, Object> toolMsg = new HashMap<String, Object>();
+                    toolMsg.put("role", "tool");
+                    toolMsg.put("tool_call_id", call.getId());
+                    toolMsg.put("content", payload);
+                    objMsgs.add(toolMsg);
+                }
+                continue;
+            }
+            if (result.getContent() != null && !result.getContent().trim().isEmpty()) {
+                break;
+            }
+            throw new IllegalStateException("LLM returned empty content and no tool_calls (stream)");
+        }
+        if (result == null || result.getContent() == null || result.getContent().trim().isEmpty()) {
+            throw new IllegalStateException("Agent exceeded max steps (" + max + ") without final answer");
+        }
+
+        List<Map<String, String>> next = new ArrayList<Map<String, String>>(ctx.getMessages());
+        next.add(assistantMessage(contentAcc.toString(), null));
+        skillInjectService.stripSkillsFromChatMessages(next);
+        conversationStore.putChatMessages(ctx.getConversationId(), next);
+        conversationMessageService.appendMessage(
+                ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null,
+                ctx.getUserMessage());
+        conversationMessageService.appendMessage(
+                ctx.getUserId(),
+                ctx.getConversationId(),
+                SessionType.GENERIC,
+                "assistant",
+                contentAcc.toString(),
+                null,
+                ctx.getUserMessage(),
+                null);
+    }
+
+    /**
+     * {@link LlmStreamClient#streamChatCompletionsWithTools} does not parse {@code reasoning_content}; use the same
+     * non-streaming tool loop as {@link #chatWithWebSearchTool}, then emit reasoning/content over SSE for the UI.
+     */
+    private void streamWithWebSearchToolsDeepThinking(
+            StreamChatContext ctx,
+            LlmStreamClient.StreamChunkConsumer onChunk,
+            List<Map<String, Object>> objMsgs,
+            List<Map<String, Object>> tools,
+            int max) throws IOException {
+        int steps = 0;
+        LlmCompletionResult result = null;
+        while (steps < max) {
+            steps++;
+            result = llmClient.chatCompletions(objMsgs, tools);
+            if (result.hasToolCalls()) {
+                objMsgs.add(result.getAssistantMessage());
+                for (LlmToolCall call : result.getToolCalls()) {
+                    String payload = executeWebSearchTool(call.getName(), call.getArguments());
+                    Map<String, Object> toolMsg = new HashMap<String, Object>();
+                    toolMsg.put("role", "tool");
+                    toolMsg.put("tool_call_id", call.getId());
+                    toolMsg.put("content", payload);
+                    objMsgs.add(toolMsg);
+                }
+                continue;
+            }
+            if (result.getContent() != null && !result.getContent().trim().isEmpty()) {
+                break;
+            }
+            throw new IllegalStateException("LLM returned empty content and no tool_calls (stream)");
+        }
+        if (result == null || result.getContent() == null || result.getContent().trim().isEmpty()) {
+            throw new IllegalStateException("Agent exceeded max steps (" + max + ") without final answer");
+        }
+
+        String reasoning = result.getReasoning();
+        String answer = result.getContent();
+        if (reasoning != null && !reasoning.isEmpty()) {
+            onChunk.onChunk(new StreamTextChunk(StreamChunkKind.REASONING, reasoning));
+        }
+        onChunk.onChunk(new StreamTextChunk(StreamChunkKind.CONTENT, answer));
+
+        String reasoningStored = reasoning != null && !reasoning.isEmpty() ? reasoning : null;
+        List<Map<String, String>> next = new ArrayList<Map<String, String>>(ctx.getMessages());
+        next.add(assistantMessage(answer, reasoningStored));
+        skillInjectService.stripSkillsFromChatMessages(next);
+        conversationStore.putChatMessages(ctx.getConversationId(), next);
+        conversationMessageService.appendMessage(
+                ctx.getUserId(), ctx.getConversationId(), SessionType.GENERIC, "user", ctx.getUserMessage(), null,
+                ctx.getUserMessage());
+        conversationMessageService.appendMessage(
+                ctx.getUserId(),
+                ctx.getConversationId(),
+                SessionType.GENERIC,
+                "assistant",
+                answer,
+                null,
+                ctx.getUserMessage(),
+                reasoningStored);
+    }
+
+    private static List<Map<String, Object>> stringMessagesToObjectMessages(List<Map<String, String>> rows) {
+        List<Map<String, Object>> out = new ArrayList<Map<String, Object>>();
+        for (Map<String, String> row : rows) {
+            Map<String, Object> m = new HashMap<String, Object>();
+            m.put("role", row.get("role"));
+            String c = row.get("content");
+            m.put("content", c != null ? c : "");
+            out.add(m);
+        }
+        return out;
+    }
+
+    private static void augmentFirstSystemForWebSearchTool(List<Map<String, Object>> objMsgs) {
+        for (int i = 0; i < objMsgs.size(); i++) {
+            if ("system".equals(String.valueOf(objMsgs.get(i).get("role")))) {
+                Object c = objMsgs.get(i).get("content");
+                String base = c != null ? String.valueOf(c) : "";
+                objMsgs.get(i).put("content", base + WEB_SEARCH_SYSTEM_APPEND);
+                return;
+            }
+        }
+        Map<String, Object> sys = new HashMap<String, Object>();
+        sys.put("role", "system");
+        sys.put("content", CHAT_SYSTEM_BASE + WEB_SEARCH_SYSTEM_APPEND);
+        objMsgs.add(0, sys);
+    }
+
     /**
      * Keeps only {@code role} and {@code content} for OpenAI-compatible APIs (drops stored {@code reasoning}, etc.).
      */
@@ -240,65 +459,6 @@ public class GenericChatService {
             this.deepThinking = deepThinking;
         }
 
-    }
-
-    /**
-     * Inserts an extra {@code system} context with web snippets immediately before the last message (current user turn).
-     * Mutates {@code forLlm} only; session {@code messages} stay without this block for persistence.
-     */
-    private void injectWebSearchContext(List<Map<String, String>> forLlm, String latestUserText, boolean enabled) {
-        if (!enabled) {
-            return;
-        }
-        if (forLlm == null || forLlm.isEmpty()) {
-            return;
-        }
-        WebSearchService.InjectBlock inject = webSearchService.searchAndFormatBlock(latestUserText);
-        String block = inject.getBody();
-        int n = inject.getResultCount();
-        Map<String, String> row = new HashMap<String, String>();
-        String point1 =
-                n > 0
-                        ? "1) 开头若写「综合了 N 条网页信息」等，其中的 N 必须等于 "
-                        + n
-                        + "，且必须与文末「---参考来源---」下列出的 URL 行数完全一致（恰好 "
-                        + n
-                        + " 行，不可多也不可少）。禁止正文写「综合了 "
-                        + n
-                        + " 条」而参考区只列更少。每一行对应上方摘要中的一条，该行 URL 必须与该条摘要里的 URL 完全一致（可从摘要复制）。"
-                        + "若若干条与问题弱相关，在正文说明筛选结论，但参考区仍须把这 "
-                        + n
-                        + " 条全部列出，简述里可标注「与主题弱相关」等。\n"
-                        : "1) 若上方显示未命中网页摘要：开头如实说明，不要虚构条数，不要输出「---参考来源---」参考区块。\n";
-        String point4 =
-                n > 0
-                        ? "4) 参考链接集中收纳：正文结束后空一行输出参考区块；禁止 HTML。"
-                        + "第一行且仅为 ---参考来源--- ；自第二行起恰好 "
-                        + n
-                        + " 行，每行纯文本：完整 http(s) URL + 半角空格 + 一句话简述（不要用 Markdown 链接）。"
-                        + "这 "
-                        + n
-                        + " 行与上方 "
-                        + n
-                        + " 条摘要一一对应，顺序建议与摘要编号一致。\n"
-                        : "4) 无命中时不要输出「---参考来源---」参考区块。\n";
-        row.put("role", "system");
-        row.put(
-                "content",
-                "以下是联网检索得到的候选网页摘要（本回合共 " + n + " 条命中），仅供参考，不代表全部事实。\n"
-                        + "回答要求：\n"
-                        + point1
-                        + "2) 先归纳后作答，不要大段照抄摘要原文；遇到列举、推荐、对比、有哪些类问题须分点写多项，"
-                        + "综合多条摘要里的不同要点，禁止把多项压成单条笼统结论。\n"
-                        + "3) 正文排版：主体回答里不要出现 http/https 裸链，也不要使用 Markdown 链接 [文字](url)、角标式来源或「见：URL」；"
-                        + "只用通顺文字陈述，避免每条内容后紧跟一个链接造成版面杂乱。\n"
-                        + point4
-                        + "5) 若问题缺少关键条件（如城市/地区/时间）或检索结果相互矛盾，先说明并向用户追问。\n"
-                        + "6) 无法确认时要明确说不确定。\n\n"
-                        + "【联网检索摘要开始】\n"
-                        + block
-                        + "\n【联网检索摘要结束】");
-        forLlm.add(forLlm.size() - 1, row);
     }
 
     private static Map<String, String> chatSystem() {

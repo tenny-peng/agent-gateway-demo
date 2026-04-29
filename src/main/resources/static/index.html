@@ -972,14 +972,14 @@
           <textarea id="msg" placeholder="输入消息..."></textarea>
           <div class="actions">
             <div class="actions-left">
-              <label class="chat-opt" id="webSearchWrap" title="开启后先检索网页再把摘要交给模型（需配置 Tavily，见 application.yml）">
+              <label class="chat-opt" id="webSearchWrap" title="开启后为模型提供联网工具，由模型按需检索网页（需 Tavily，见 application.yml）；并非每条消息都会搜索">
                 <input type="checkbox" id="webSearchToggle" class="chat-opt-input" />
                 <span class="chat-opt-body">
-                  <span class="chat-opt-name">联网搜索</span>
+                  <span class="chat-opt-name">按需联网</span>
                   <span class="chat-opt-switch" aria-hidden="true"></span>
                 </span>
               </label>
-              <label class="chat-opt" id="deepThinkingWrap" title="开启后流式展示并保留历史中的模型思考过程（需模型返回 reasoning，如 DeepSeek-R1）；关闭则仅显示最终回答">
+              <label class="chat-opt" id="deepThinkingWrap" title="开启后展示并保留历史中的模型思考过程（需模型返回 reasoning，如 DeepSeek-R1）；关闭则仅显示最终回答。与「按需联网」同时开启时，工具轮次为非流式，思考与正文在工具完成后一次性推送">
                 <input type="checkbox" id="deepThinkingToggle" class="chat-opt-input" />
                 <span class="chat-opt-body">
                   <span class="chat-opt-name">深度思考</span>
@@ -999,7 +999,7 @@
   <script>
     (function () {
       var TOKEN_KEY = "agentGatewayJwt";
-      /** 通用问答「联网搜索」勾选状态，刷新后保留 */
+      /** 通用问答「按需联网」勾选状态，刷新后保留 */
       var WEB_SEARCH_PREF_KEY = "agentGatewayGenericWebSearch";
       /** 通用问答「深度思考」展示开关，刷新后保留 */
       var DEEP_THINKING_PREF_KEY = "agentGatewayGenericDeepThinking";
@@ -1386,7 +1386,7 @@
               var reasoningBlock = "";
               if (m.reasoning && showDeepThinkingUi()) {
                 reasoningBlock =
-                  '<details class="msg-reasoning"><summary>深度思考</summary><pre class="msg-reasoning-pre">' +
+                  '<details class="msg-reasoning" open><summary>深度思考</summary><pre class="msg-reasoning-pre">' +
                   escapeHtmlText(m.reasoning) +
                   "</pre></details>";
               }

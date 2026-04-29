@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Generic Q&amp;A (no tools): {@code /api/generic/...}.
+ * Generic Q&amp;A: {@code /api/generic/...}. Optional on-demand {@code web_search} tool when {@code webSearch} is true.
  */
 @RestController
 @RequestMapping("/api/generic")
