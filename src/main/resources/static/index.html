@@ -1589,6 +1589,7 @@
         renderMessages();
         var answerIndex = localRows.length - 1;
         var wasAborted = false;
+        var streamErrored = false;
 
         try {
           var payload = { message: text, conversationId: convByMode[mode] || undefined };
@@ -1623,6 +1624,16 @@
                   convByMode[mode] = obj.conversationId;
                   return;
                 }
+                if (obj && obj.type === "error" && typeof obj.text === "string") {
+                  streamErrored = true;
+                  localRows[answerIndex].streaming = false;
+                  localRows[answerIndex].plainText = true;
+                  var pfx = (localRows[answerIndex].content || "").trim() ? "\n\n" : "";
+                  localRows[answerIndex].content = (localRows[answerIndex].content || "") + pfx + obj.text;
+                  setStatus(obj.text, "err");
+                  scheduleStreamRender();
+                  return;
+                }
                 if (
                   obj &&
                   (obj.type === "reasoning" || obj.type === "content") &&
@@ -1650,6 +1661,16 @@
               try {
                 var obj = JSON.parse(payload);
                 if (obj && obj.conversationId) return;
+                if (obj && obj.type === "error" && typeof obj.text === "string") {
+                  streamErrored = true;
+                  localRows[answerIndex].streaming = false;
+                  localRows[answerIndex].plainText = true;
+                  var pfx2 = (localRows[answerIndex].content || "").trim() ? "\n\n" : "";
+                  localRows[answerIndex].content = (localRows[answerIndex].content || "") + pfx2 + obj.text;
+                  setStatus(obj.text, "err");
+                  scheduleStreamRender();
+                  return;
+                }
                 if (
                   obj &&
                   (obj.type === "reasoning" || obj.type === "content") &&
@@ -1671,9 +1692,11 @@
           }
           localRows[answerIndex].streaming = false;
           renderMessages();
-          setStatus("完成", "ok", { autoClearMs: 2800 });
-          await loadConversations();
-          renderConversationList();
+          if (!streamErrored) {
+            setStatus("完成", "ok", { autoClearMs: 2800 });
+            await loadConversations();
+            renderConversationList();
+          }
         } catch (e) {
           if (e.name === "AbortError") {
             // 用户主动停止

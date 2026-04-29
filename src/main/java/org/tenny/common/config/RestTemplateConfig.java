@@ -13,9 +13,13 @@ public class RestTemplateConfig {
 
     @Bean
     public RestTemplate llmRestTemplate(RestTemplateBuilder builder, LlmConfigService llmConfigService) {
+        org.tenny.llmconfig.entity.LlmConfig c = llmConfigService.getActiveConfig();
+        int connectMs = c.getTimeoutMs() != null ? c.getTimeoutMs() : 15000;
+        int streamMs = c.getStreamTimeoutMs() != null ? c.getStreamTimeoutMs() : connectMs;
+        int readMs = Math.max(connectMs, streamMs);
         return builder
-                .setConnectTimeout(java.time.Duration.ofMillis(llmConfigService.getActiveConfig().getTimeoutMs()))
-                .setReadTimeout(java.time.Duration.ofMillis(llmConfigService.getActiveConfig().getTimeoutMs()))
+                .setConnectTimeout(Duration.ofMillis(connectMs))
+                .setReadTimeout(Duration.ofMillis(readMs))
                 .build();
     }
 

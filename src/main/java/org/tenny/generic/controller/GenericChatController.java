@@ -87,7 +87,14 @@ public class GenericChatController {
                 emitter.complete();
             } catch (Exception e) {
                 if (!"Stream interrupted".equals(e.getMessage())) {
-                    emitter.completeWithError(e);
+                    try {
+                        Map<String, String> errEvt = new LinkedHashMap<String, String>();
+                        errEvt.put("type", "error");
+                        errEvt.put("text", e.getMessage() != null ? e.getMessage() : "Unknown error");
+                        emitter.send(SseEmitter.event().data(objectMapper.writeValueAsString(errEvt), jsonUtf8));
+                    } catch (Exception ignored) {
+                    }
+                    emitter.complete();
                 } else {
                     emitter.complete();
                 }
