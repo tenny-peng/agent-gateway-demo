@@ -30,7 +30,7 @@ public interface UserConversationMessageMapper extends BaseMapper<UserConversati
 
     @Select("SELECT id, user_id, conversation_id, session_type, seq_no, role, content, reasoning, tool_name, created_at "
             + "FROM user_conversation_message "
-            + "WHERE user_id = #{userId} AND conversation_id = #{conversationId} AND session_type = #{sessionType} "
+            + "WHERE role != 'tool' AND user_id = #{userId} AND conversation_id = #{conversationId} AND session_type = #{sessionType} "
             + "ORDER BY seq_no ASC LIMIT #{limit}")
     List<UserConversationMessage> selectMessages(@Param("userId") long userId,
                                                  @Param("conversationId") String conversationId,
