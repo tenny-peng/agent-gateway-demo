@@ -34,6 +34,17 @@ app:
     # If both set, creates or resets this admin on startup (BCrypt hash stored).
     username: ${ADMIN_BOOTSTRAP_USERNAME:}
     password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+    # 通用会话「联网」使用 Tavily：https://tavily.com — 用户勾选联网时才会请求
+  web-search:
+    base-url: https://api.tavily.com/search
+    api-key: ${TAVILY_API_KEY:}
+    # Tavily 允许 1–20；略提高便于列举类问题覆盖多站
+    max-results: 8
+    max-snippet-chars-per-result: 800
+    # basic=1 credit；advanced 质量更好（列举/细节），Tavily 约 2 credits/次，可按成本改回 basic
+    search-depth: advanced
+    chunks-per-source: 3
+    timeout-ms: 15000
 
 llm:
   name: default

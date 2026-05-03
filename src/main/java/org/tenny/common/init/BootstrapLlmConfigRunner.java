@@ -27,6 +27,12 @@ public class BootstrapLlmConfigRunner implements ApplicationRunner {
         String name = llmProperties.getName();
         LlmConfig llmConfig = llmConfigService.getConfigByName(name);
         if (llmConfig != null) {
+            llmConfig.setBaseUrl(llmProperties.getBaseUrl());
+            llmConfig.setApiKey(llmProperties.getApiKey());
+            llmConfig.setModel(llmProperties.getModel());
+            llmConfig.setTimeoutMs(llmProperties.getTimeoutMs());
+            llmConfig.setStreamTimeoutMs(llmProperties.getStreamTimeoutMs());
+            llmConfigService.updateById(llmConfig);
             return;
         }
         LlmConfig defaultConfig = new LlmConfig();
