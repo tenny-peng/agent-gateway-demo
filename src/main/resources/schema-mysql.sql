@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS app_user (
   username VARCHAR(64) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(16) NOT NULL DEFAULT 'USER',
+  chat_limit_enabled TINYINT NOT NULL DEFAULT 1 COMMENT '1=chat limit enabled, 0=unlimited',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_app_user_username (username)
@@ -43,6 +44,7 @@ CREATE TABLE IF NOT EXISTS user_conversation_message (
   seq_no INT NOT NULL,
   role VARCHAR(16) NOT NULL,
   content MEDIUMTEXT NOT NULL,
+  reasoning MEDIUMTEXT NULL COMMENT 'Optional chain-of-thought from reasoning models (not sent back to LLM API).',
   tool_name VARCHAR(64) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -50,4 +52,37 @@ CREATE TABLE IF NOT EXISTS user_conversation_message (
   KEY idx_ucm_conv_seq (user_id, conversation_id, session_type, seq_no),
   KEY idx_ucm_conv_time (user_id, conversation_id, session_type, created_at),
   CONSTRAINT fk_ucm_user FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- User Skill table for storing custom Markdown-based skills (Cursor-like rules)
+CREATE TABLE IF NOT EXISTS user_skill (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  title VARCHAR(255) NOT NULL COMMENT 'Skill title',
+  description VARCHAR(500) NULL COMMENT 'Skill description for matching',
+  content MEDIUMTEXT NOT NULL COMMENT 'Markdown content of the skill',
+  is_active TINYINT NOT NULL DEFAULT 1 COMMENT '1=active, 0=inactive',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_user_id (user_id),
+  KEY idx_active (is_active),
+  CONSTRAINT fk_skill_user FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- LLM Configuration table for managing AI model settings
+CREATE TABLE IF NOT EXISTS llm_config (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL COMMENT 'Configuration name for identification',
+  base_url VARCHAR(500) NOT NULL COMMENT 'OpenAI-compatible base URL',
+  api_key VARCHAR(500) NOT NULL COMMENT 'API key for authentication',
+  model VARCHAR(100) NOT NULL COMMENT 'Model name',
+  timeout_ms INT NOT NULL DEFAULT 15000 COMMENT 'Request timeout in milliseconds',
+  stream_timeout_ms INT NOT NULL DEFAULT 120000 COMMENT 'Stream timeout in milliseconds',
+  is_active TINYINT NOT NULL DEFAULT 0 COMMENT '1=active configuration, 0=inactive',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_llm_config_name (name),
+  KEY idx_active (is_active)
 ) ENGINE=InnoDB;

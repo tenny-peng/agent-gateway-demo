@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>技能管理 · agent-gateway-demo</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel-2: #f8f9fa;
+      --border: #e1e5e9;
+      --text: #24292f;
+      --muted: #656d76;
+      --accent: #0969da;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.8rem;
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    thead th {
+      background: var(--panel-2);
+      font-weight: 600;
+    }
+
+    .inline-actions {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .status {
+      margin-top: 0.75rem;
+      padding: 0.6rem 0.7rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .status.ok {
+      display: block;
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+
+    .status.err {
+      display: block;
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    .status.info {
+      display: block;
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 1.2rem;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      margin-top: 0.8rem;
+      display: none;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 1000;
+    }
+
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      width: 92%;
+      max-width: 620px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    .modal-title {
+      margin: 0 0 0.8rem;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .form-group { margin-bottom: 0.7rem; }
+    .form-label { display: block; margin-bottom: 0.35rem; font-size: 0.9rem; }
+    .form-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.6rem;
+      font-size: 0.9rem;
+    }
+    .form-textarea {
+      resize: vertical;
+      min-height: 120px;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      margin-top: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1 class="title">技能管理</h1>
+    <div class="toolbar-actions">
+      <button id="btnAddSkill" class="btn primary" type="button">新增技能</button>
+      <button id="btnRefreshSkills" class="btn" type="button">刷新列表</button>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>名称</th>
+        <th>描述</th>
+        <th>状态</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="skillsTableBody"></tbody>
+  </table>
+
+  <div id="emptyState" class="empty">暂无技能</div>
+  <div id="status" class="status"></div>
+
+  <div id="skillModal" class="modal">
+    <div class="modal-content">
+      <h2 id="modalTitle" class="modal-title">新增技能</h2>
+      <form id="skillForm">
+        <div class="form-group">
+          <label for="skillTitle" class="form-label">技能名称 *</label>
+          <input type="text" id="skillTitle" class="form-input" required />
+        </div>
+        <div class="form-group">
+          <label for="skillDescription" class="form-label">技能描述 *</label>
+          <input type="text" id="skillDescription" class="form-input" required />
+        </div>
+        <div class="form-group">
+          <label for="skillContent" class="form-label">技能内容 *</label>
+          <textarea id="skillContent" class="form-input form-textarea" required></textarea>
+        </div>
+      </form>
+      <div class="modal-actions">
+        <button type="button" id="btnCancel" class="btn">取消</button>
+        <button type="button" id="btnSave" class="btn primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var TOKEN_KEY = "agentGatewayJwt";
+      var skillsTableBody = document.getElementById("skillsTableBody");
+      var emptyState = document.getElementById("emptyState");
+      var statusEl = document.getElementById("status");
+      var btnRefreshSkills = document.getElementById("btnRefreshSkills");
+      var btnAddSkill = document.getElementById("btnAddSkill");
+      var skillModal = document.getElementById("skillModal");
+      var modalTitle = document.getElementById("modalTitle");
+      var skillForm = document.getElementById("skillForm");
+      var skillTitle = document.getElementById("skillTitle");
+      var skillDescription = document.getElementById("skillDescription");
+      var skillContent = document.getElementById("skillContent");
+      var btnCancel = document.getElementById("btnCancel");
+      var btnSave = document.getElementById("btnSave");
+
+      var currentEditingSkill = null;
+
+      function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
+      function authHeaders() {
+        var h = {};
+        var t = getToken();
+        if (t) h.Authorization = "Bearer " + t;
+        return h;
+      }
+      function setStatus(text, cls) {
+        statusEl.textContent = text || "";
+        statusEl.className = "status" + (cls ? " " + cls : "");
+      }
+
+      function renderSkills(data) {
+        skillsTableBody.innerHTML = "";
+        if (!data || !data.length) {
+          emptyState.style.display = "block";
+          return;
+        }
+        emptyState.style.display = "none";
+        data.forEach(function (skill) {
+          var row = document.createElement("tr");
+          row.innerHTML =
+            "<td>" + (skill.id || "") + "</td>" +
+            "<td>" + (skill.title || "") + "</td>" +
+            "<td>" + (skill.description || "") + "</td>" +
+            "<td>" + (skill.isActive ? "启用" : "禁用") + "</td>" +
+            "<td><div class='inline-actions'>" +
+              "<button class='btn' data-action='edit' data-id='" + skill.id + "'>编辑</button>" +
+              "<button class='btn' data-action='toggle' data-id='" + skill.id + "'>" + (skill.isActive ? "禁用" : "启用") + "</button>" +
+              "<button class='btn' data-action='delete' data-id='" + skill.id + "'>删除</button>" +
+            "</div></td>";
+          row._skill = skill;
+          skillsTableBody.appendChild(row);
+        });
+      }
+
+      function loadSkills() {
+        setStatus("加载中...", "info");
+        fetch("/api/skills/all", { headers: authHeaders() })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function (data) {
+            renderSkills(data);
+            setStatus("", "");
+          })
+          .catch(function (e) {
+            setStatus("加载失败: " + e.message, "err");
+          });
+      }
+
+      function openModal(skill) {
+        currentEditingSkill = skill || null;
+        skillForm.reset();
+        if (currentEditingSkill) {
+          modalTitle.textContent = "编辑技能";
+          skillTitle.value = currentEditingSkill.title || "";
+          skillDescription.value = currentEditingSkill.description || "";
+          skillContent.value = currentEditingSkill.content || "";
+        } else {
+          modalTitle.textContent = "新增技能";
+        }
+        skillModal.classList.add("show");
+      }
+
+      function closeModal() {
+        skillModal.classList.remove("show");
+        currentEditingSkill = null;
+        skillForm.reset();
+      }
+
+      function saveSkill() {
+        var payload = {
+          title: skillTitle.value.trim(),
+          description: skillDescription.value.trim(),
+          content: skillContent.value.trim()
+        };
+        if (!payload.title || !payload.description || !payload.content) {
+          alert("请填写所有必填字段");
+          return;
+        }
+
+        var url = "/api/skills";
+        var method = "POST";
+        if (currentEditingSkill) {
+          url = "/api/skills/" + currentEditingSkill.id;
+          method = "PUT";
+        }
+
+        setStatus("保存中...", "info");
+        fetch(url, {
+          method: method,
+          headers: Object.assign(authHeaders(), { "Content-Type": "application/json" }),
+          body: JSON.stringify(payload)
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function () {
+            setStatus("保存成功", "ok");
+            closeModal();
+            loadSkills();
+          })
+          .catch(function (e) {
+            setStatus("保存失败: " + e.message, "err");
+          });
+      }
+
+      function toggleSkill(skillId) {
+        setStatus("切换中...", "info");
+        fetch("/api/skills/" + skillId + "/toggle", {
+          method: "POST",
+          headers: authHeaders()
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function () {
+            setStatus("状态切换成功", "ok");
+            loadSkills();
+          })
+          .catch(function (e) {
+            setStatus("切换失败: " + e.message, "err");
+          });
+      }
+
+      function deleteSkill(skillId) {
+        if (!confirm("确定删除这个技能吗？")) return;
+        setStatus("删除中...", "info");
+        fetch("/api/skills/" + skillId, {
+          method: "DELETE",
+          headers: authHeaders()
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function () {
+            setStatus("删除成功", "ok");
+            loadSkills();
+          })
+          .catch(function (e) {
+            setStatus("删除失败: " + e.message, "err");
+          });
+      }
+
+      skillsTableBody.addEventListener("click", function (e) {
+        var target = e.target;
+        if (!target || !target.getAttribute) return;
+        var action = target.getAttribute("data-action");
+        var id = target.getAttribute("data-id");
+        if (!action || !id) return;
+        if (action === "toggle") {
+          toggleSkill(id);
+          return;
+        }
+        if (action === "delete") {
+          deleteSkill(id);
+          return;
+        }
+        if (action === "edit") {
+          var row = target.closest("tr");
+          openModal(row ? row._skill : null);
+        }
+      });
+
+      btnAddSkill.addEventListener("click", function () { openModal(null); });
+      btnRefreshSkills.addEventListener("click", loadSkills);
+      btnCancel.addEventListener("click", closeModal);
+      btnSave.addEventListener("click", saveSkill);
+      skillModal.addEventListener("click", function (e) {
+        if (e.target === skillModal) closeModal();
+      });
+
+      loadSkills();
+    })();
+  </script>
+</body>
+</html>

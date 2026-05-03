@@ -2,23 +2,12 @@ package org.tenny;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.tenny.config.AgentProperties;
-import org.tenny.config.AppSecurityProperties;
-import org.tenny.config.BootstrapAdminProperties;
-import org.tenny.config.ConversationRedisProperties;
-import org.tenny.config.LlmProperties;
-import org.tenny.config.RagProperties;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+import org.springframework.cache.annotation.EnableCaching;
 
 @SpringBootApplication
-@EnableConfigurationProperties({
-        LlmProperties.class,
-        AgentProperties.class,
-        RagProperties.class,
-        AppSecurityProperties.class,
-        BootstrapAdminProperties.class,
-        ConversationRedisProperties.class
-})
+@EnableCaching
+@ConfigurationPropertiesScan("org.tenny.common.config")
 public class AgentGatewayApplication {
 
     public static void main(String[] args) {

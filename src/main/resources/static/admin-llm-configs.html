@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LLM 配置管理 · agent-gateway-demo</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel-2: #f8f9fa;
+      --border: #e1e5e9;
+      --text: #24292f;
+      --muted: #656d76;
+      --accent: #0969da;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.8rem;
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    thead th {
+      background: var(--panel-2);
+      font-weight: 600;
+    }
+
+    .inline-actions {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .status {
+      margin-top: 0.75rem;
+      padding: 0.6rem 0.7rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .status.ok {
+      display: block;
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+
+    .status.err {
+      display: block;
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    .status.info {
+      display: block;
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 1.2rem;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      margin-top: 0.8rem;
+      display: none;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 1000;
+    }
+
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      width: 92%;
+      max-width: 560px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    .modal-title {
+      margin: 0 0 0.8rem;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .form-group { margin-bottom: 0.7rem; }
+    .form-label { display: block; margin-bottom: 0.35rem; font-size: 0.9rem; }
+    .form-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.6rem;
+      font-size: 0.9rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      margin-top: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1 class="title">LLM 配置管理</h1>
+    <div class="toolbar-actions">
+      <button id="btnCreateConfig" class="btn primary" type="button">新增配置</button>
+      <button id="btnRefreshConfigs" class="btn" type="button">刷新列表</button>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>名称</th>
+        <th>模型</th>
+        <th>Base URL</th>
+        <th>超时(ms)</th>
+        <th>状态</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="configsTableBody"></tbody>
+  </table>
+
+  <div id="emptyState" class="empty">暂无 LLM 配置</div>
+  <div class="status" id="status"></div>
+
+  <div id="configModal" class="modal">
+    <div class="modal-content">
+      <h2 id="modalTitle" class="modal-title">创建 LLM 配置</h2>
+      <form id="configForm">
+        <div class="form-group">
+          <label for="configName" class="form-label">配置名称 *</label>
+          <input type="text" id="configName" class="form-input" required />
+        </div>
+        <div class="form-group">
+          <label for="configBaseUrl" class="form-label">Base URL *</label>
+          <input type="url" id="configBaseUrl" class="form-input" required />
+        </div>
+        <div class="form-group">
+          <label for="configApiKey" class="form-label">API Key *</label>
+          <input type="password" id="configApiKey" class="form-input" required />
+        </div>
+        <div class="form-group">
+          <label for="configModel" class="form-label">模型名称 *</label>
+          <input type="text" id="configModel" class="form-input" required />
+        </div>
+        <div class="form-group">
+          <label for="configTimeoutMs" class="form-label">请求超时(ms)</label>
+          <input type="number" id="configTimeoutMs" class="form-input" value="15000" min="1000" />
+        </div>
+        <div class="form-group">
+          <label for="configStreamTimeoutMs" class="form-label">流式超时(ms)</label>
+          <input type="number" id="configStreamTimeoutMs" class="form-input" value="120000" min="1000" />
+        </div>
+        <div class="form-group">
+          <label class="form-label"><input type="checkbox" id="configIsActive" /> 设置为活动配置</label>
+        </div>
+      </form>
+      <div class="modal-actions">
+        <button id="btnCancel" class="btn" type="button">取消</button>
+        <button id="btnSave" class="btn primary" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var TOKEN_KEY = "agentGatewayJwt";
+      var configsTableBody = document.getElementById("configsTableBody");
+      var emptyState = document.getElementById("emptyState");
+      var statusEl = document.getElementById("status");
+      var btnCreateConfig = document.getElementById("btnCreateConfig");
+      var btnRefreshConfigs = document.getElementById("btnRefreshConfigs");
+      var configModal = document.getElementById("configModal");
+      var modalTitle = document.getElementById("modalTitle");
+      var configForm = document.getElementById("configForm");
+      var btnCancel = document.getElementById("btnCancel");
+      var btnSave = document.getElementById("btnSave");
+
+      var editingConfig = null;
+
+      function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
+      function authHeaders() {
+        var h = {};
+        var t = getToken();
+        if (t) h.Authorization = "Bearer " + t;
+        return h;
+      }
+      function setStatus(text, cls) {
+        statusEl.textContent = text || "";
+        statusEl.className = "status" + (cls ? " " + cls : "");
+      }
+
+      function renderConfigs(data) {
+        configsTableBody.innerHTML = "";
+        if (!data || !data.length) {
+          emptyState.style.display = "block";
+          return;
+        }
+        emptyState.style.display = "none";
+        data.forEach(function (config) {
+          var row = document.createElement("tr");
+          row.innerHTML =
+            "<td>" + (config.id || "") + "</td>" +
+            "<td>" + (config.name || "") + "</td>" +
+            "<td>" + (config.model || "") + "</td>" +
+            "<td>" + (config.baseUrl || "") + "</td>" +
+            "<td>" + (config.timeoutMs || 0) + " / " + (config.streamTimeoutMs || 0) + "</td>" +
+            "<td>" + (config.isActive ? "活动" : "非活动") + "</td>" +
+            "<td><div class='inline-actions'>" +
+              (config.isActive ? "" : "<button class='btn' data-action='activate' data-id='" + config.id + "'>设为活动</button>") +
+              "<button class='btn' data-action='edit' data-id='" + config.id + "'>编辑</button>" +
+              "<button class='btn' data-action='delete' data-id='" + config.id + "' data-name='" + (config.name || "") + "'>删除</button>" +
+            "</div></td>";
+          row._config = config;
+          configsTableBody.appendChild(row);
+        });
+      }
+
+      function loadConfigs() {
+        setStatus("加载中...", "info");
+        fetch("/api/admin/llm-configs", { headers: authHeaders() })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function (data) {
+            renderConfigs(data);
+            setStatus("", "");
+          })
+          .catch(function (e) {
+            setStatus("加载失败: " + e.message, "err");
+          });
+      }
+
+      function activateConfig(id) {
+        if (!confirm("确定设为活动配置吗？")) return;
+        setStatus("激活中...", "info");
+        fetch("/api/admin/llm-configs/" + id + "/activate", {
+          method: "POST",
+          headers: authHeaders()
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function () {
+            setStatus("配置已激活", "ok");
+            loadConfigs();
+          })
+          .catch(function (e) {
+            setStatus("激活失败: " + e.message, "err");
+          });
+      }
+
+      function deleteConfig(id, name) {
+        if (!confirm("确定删除配置 " + name + " 吗？")) return;
+        setStatus("删除中...", "info");
+        fetch("/api/admin/llm-configs/" + id, {
+          method: "DELETE",
+          headers: authHeaders()
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            setStatus("配置已删除", "ok");
+            loadConfigs();
+          })
+          .catch(function (e) {
+            setStatus("删除失败: " + e.message, "err");
+          });
+      }
+
+      function openModal(config) {
+        editingConfig = config || null;
+        modalTitle.textContent = editingConfig ? "编辑 LLM 配置" : "创建 LLM 配置";
+        configForm.reset();
+        if (editingConfig) {
+          document.getElementById("configName").value = editingConfig.name || "";
+          document.getElementById("configBaseUrl").value = editingConfig.baseUrl || "";
+          document.getElementById("configApiKey").value = editingConfig.apiKey || "";
+          document.getElementById("configModel").value = editingConfig.model || "";
+          document.getElementById("configTimeoutMs").value = editingConfig.timeoutMs || 15000;
+          document.getElementById("configStreamTimeoutMs").value = editingConfig.streamTimeoutMs || 120000;
+          document.getElementById("configIsActive").checked = !!editingConfig.isActive;
+        }
+        configModal.classList.add("show");
+      }
+
+      function closeModal() {
+        configModal.classList.remove("show");
+        editingConfig = null;
+        configForm.reset();
+      }
+
+      function saveConfig() {
+        var formData = {
+          name: document.getElementById("configName").value.trim(),
+          baseUrl: document.getElementById("configBaseUrl").value.trim(),
+          apiKey: document.getElementById("configApiKey").value,
+          model: document.getElementById("configModel").value.trim(),
+          timeoutMs: parseInt(document.getElementById("configTimeoutMs").value, 10) || 15000,
+          streamTimeoutMs: parseInt(document.getElementById("configStreamTimeoutMs").value, 10) || 120000,
+          isActive: document.getElementById("configIsActive").checked
+        };
+        if (!formData.name || !formData.baseUrl || !formData.apiKey || !formData.model) {
+          alert("请填写所有必填字段");
+          return;
+        }
+
+        var url = "/api/admin/llm-configs";
+        var method = "POST";
+        if (editingConfig) {
+          url += "/" + editingConfig.id;
+          method = "PUT";
+        }
+        setStatus("保存中...", "info");
+        fetch(url, {
+          method: method,
+          headers: Object.assign(authHeaders(), { "Content-Type": "application/json" }),
+          body: JSON.stringify(formData)
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function () {
+            setStatus("保存成功", "ok");
+            closeModal();
+            loadConfigs();
+          })
+          .catch(function (e) {
+            setStatus("保存失败: " + e.message, "err");
+          });
+      }
+
+      configsTableBody.addEventListener("click", function (e) {
+        var target = e.target;
+        if (!target || !target.getAttribute) return;
+        var action = target.getAttribute("data-action");
+        var id = target.getAttribute("data-id");
+        if (!action || !id) return;
+        if (action === "activate") {
+          activateConfig(id);
+          return;
+        }
+        if (action === "delete") {
+          deleteConfig(id, target.getAttribute("data-name") || "");
+          return;
+        }
+        if (action === "edit") {
+          var row = target.closest("tr");
+          openModal(row ? row._config : null);
+        }
+      });
+
+      btnCreateConfig.addEventListener("click", function () { openModal(null); });
+      btnRefreshConfigs.addEventListener("click", loadConfigs);
+      btnCancel.addEventListener("click", closeModal);
+      btnSave.addEventListener("click", saveConfig);
+      configModal.addEventListener("click", function (e) {
+        if (e.target === configModal) closeModal();
+      });
+
+      loadConfigs();
+    })();
+  </script>
+</body>
+</html>

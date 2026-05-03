@@ -1,33 +1,25 @@
 package org.tenny.auth.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.tenny.auth.dto.AuthResponse;
 import org.tenny.auth.dto.LoginRequest;
 import org.tenny.auth.dto.RegisterRequest;
-import org.tenny.auth.entity.AppUser;
-import org.tenny.auth.mapper.AppUserMapper;
-import org.tenny.config.AppSecurityProperties;
-import org.tenny.web.UnauthorizedException;
+import org.tenny.user.entity.AppUser;
+import org.tenny.user.mapper.AppUserMapper;
+import org.tenny.common.config.AppProperties;
+import org.tenny.common.exception.UnauthorizedException;
 
 @Service
+@RequiredArgsConstructor
 public class AuthService {
 
     private final AppUserMapper appUserMapper;
     private final PasswordEncoder passwordEncoder;
     private final SessionTokenService sessionTokenService;
-    private final AppSecurityProperties appSecurityProperties;
-
-    public AuthService(AppUserMapper appUserMapper,
-                       PasswordEncoder passwordEncoder,
-                       SessionTokenService sessionTokenService,
-                       AppSecurityProperties appSecurityProperties) {
-        this.appUserMapper = appUserMapper;
-        this.passwordEncoder = passwordEncoder;
-        this.sessionTokenService = sessionTokenService;
-        this.appSecurityProperties = appSecurityProperties;
-    }
+    private final AppProperties appProperties;
 
     public AuthResponse register(RegisterRequest request) {
         String uname = request.getUsername().trim();
@@ -39,11 +31,12 @@ public class AuthService {
         u.setUsername(uname);
         u.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         u.setRole("USER");
+        u.setChatLimitEnabled(true); // New users have chat limit enabled by default
         appUserMapper.insert(u);
         String token = sessionTokenService.createSession(u.getId(), uname, "USER");
         return new AuthResponse(
                 token,
-                appSecurityProperties.getSessionExpireHours(),
+                appProperties.getSecurity().getSessionExpireHours(),
                 uname,
                 "USER");
     }
@@ -61,7 +54,7 @@ public class AuthService {
         String token = sessionTokenService.createSession(row.getId(), row.getUsername(), row.getRole());
         return new AuthResponse(
                 token,
-                appSecurityProperties.getSessionExpireHours(),
+                appProperties.getSecurity().getSessionExpireHours(),
                 row.getUsername(),
                 row.getRole());
     }

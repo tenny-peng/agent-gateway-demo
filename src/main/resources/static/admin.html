@@ -6,163 +6,335 @@
   <title>管理后台 · agent-gateway-demo</title>
   <style>
     :root {
-      --bg: #0f1419;
-      --panel: #1a2332;
-      --border: #2d3a4d;
-      --text: #e6edf3;
-      --muted: #8b9cb3;
-      --accent: #58a6ff;
+      --bg: #fafbfc;
+      --panel: #ffffff;
+      --panel-2: #f8f9fa;
+      --border: #e1e5e9;
+      --text: #24292f;
+      --muted: #656d76;
+      --accent: #0969da;
+      --shadow: 0 1px 3px rgba(27, 31, 35, 0.12), 0 1px 2px rgba(27, 31, 35, 0.24);
+      --shadow-lg: 0 8px 24px rgba(27, 31, 35, 0.15);
     }
+
     * { box-sizing: border-box; }
+
     body {
-      font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      margin: 0;
-      min-height: 100vh;
-      padding: 1.25rem;
-      max-width: 56rem;
-      margin-left: auto;
-      margin-right: auto;
+      height: 100vh;
+      overflow: hidden;
+      padding: 1rem;
     }
-    h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.75rem; }
-    .hint { color: var(--muted); font-size: 0.85rem; margin-bottom: 1rem; }
-    a { color: var(--accent); }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
-    button {
-      cursor: pointer;
-      background: #212c3d;
+
+    .hidden { display: none !important; }
+
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      height: calc(100vh - 2rem);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 1rem;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      background: var(--panel);
       border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 6px;
-      padding: 0.45rem 0.75rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
     }
-    button.primary {
-      background: #1f6feb;
-      border-color: #388bfd;
-      color: #fff;
+
+    .app-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      white-space: nowrap;
     }
-    .stat { font-size: 0.95rem; margin-bottom: 0.75rem; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
+
+    .user-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .user-dropdown-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid var(--border);
+      transition: all 0.15s ease;
+      font-size: 0.9rem;
+    }
+
+    .user-dropdown-toggle:hover {
+      background: var(--panel-2);
+      box-shadow: var(--shadow);
+    }
+
+    .user-dropdown-toggle .arrow {
+      font-size: 0.75rem;
+      color: var(--muted);
+      transition: transform 0.2s ease;
+    }
+
+    .user-dropdown.open .arrow { transform: rotate(180deg); }
+
+    .user-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 0.5rem);
+      right: 0;
+      min-width: 160px;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 8px;
-      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px);
+      transition: all 0.15s ease;
+      z-index: 100;
     }
-    th, td {
+
+    .user-dropdown.open .user-dropdown-menu {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .user-dropdown-item {
+      display: block;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 0.9rem;
       text-align: left;
-      padding: 0.5rem 0.65rem;
-      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s ease;
     }
-    th { color: var(--muted); font-weight: 500; }
-    tr:last-child td { border-bottom: none; }
-    .err { color: #f85149; font-size: 0.9rem; margin-top: 0.5rem; }
+
+    .user-dropdown-item:hover { background: var(--panel-2); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap: 1rem;
+      min-height: 0;
+    }
+
+    .menu-panel, .content-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      min-height: 0;
+    }
+
+    .menu-panel {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .menu-title {
+      margin: 0 0 0.5rem;
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .menu-item {
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 0.65rem 0.75rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .menu-item:hover {
+      border-color: var(--accent);
+      background: #f0f6ff;
+    }
+
+    .menu-item.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .content-panel {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .content-head {
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel-2);
+      font-weight: 600;
+    }
+
+    #contentFrame {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+
+    @media (max-width: 900px) {
+      body { padding: 0.75rem; }
+      .page { height: calc(100vh - 1.5rem); }
+      .layout { grid-template-columns: 1fr; }
+      .menu-panel { flex-direction: row; flex-wrap: wrap; }
+      .menu-title { width: 100%; }
+      .menu-item { width: auto; }
+    }
   </style>
 </head>
 <body>
-  <h1>管理后台</h1>
-  <p class="hint">使用<strong>管理员</strong>账号登录后，沿用首页保存在浏览器中的登录令牌。数据来源：<code>GET /api/admin/stats</code></p>
-  <div class="toolbar">
-    <a href="/">← 返回聊天</a>
-    <button type="button" class="primary" id="btnLoad">刷新数据</button>
+  <div class="page">
+    <header class="topbar">
+      <div class="app-name">AI Agent Demo Admin</div>
+      <div class="user-dropdown" id="userDropdown">
+        <button class="user-dropdown-toggle" type="button">
+          <span id="authInfo"></span>
+          <span class="arrow">▼</span>
+        </button>
+        <div class="user-dropdown-menu">
+          <button class="user-dropdown-item" type="button" id="btnLogout">退出</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="menu-panel">
+        <p class="menu-title">后台菜单</p>
+        <button class="menu-item active" data-page="/admin-users.html" data-title="用户管理">用户管理</button>
+        <button class="menu-item" data-page="/admin-llm-configs.html" data-title="LLM 配置管理">LLM 配置管理</button>
+        <button class="menu-item" data-page="/admin-skills.html" data-title="技能管理">技能管理</button>
+      </aside>
+      <main class="content-panel">
+        <div class="content-head" id="contentTitle">用户管理</div>
+        <iframe id="contentFrame" src="/admin-users.html" title="Admin Content"></iframe>
+      </main>
+    </div>
   </div>
-  <div class="stat" id="totalUsers"></div>
-  <div id="err" class="err"></div>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>用户名</th>
-        <th>角色</th>
-        <th>注册时间</th>
-        <th>会话数</th>
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-  </table>
 
   <script>
     (function () {
       var TOKEN_KEY = "agentGatewayJwt";
+      var authInfo = document.getElementById("authInfo");
+      var btnLogout = document.getElementById("btnLogout");
+      var userDropdown = document.getElementById("userDropdown");
+      var menuItems = document.querySelectorAll(".menu-item");
+      var contentFrame = document.getElementById("contentFrame");
+      var contentTitle = document.getElementById("contentTitle");
 
       function getToken() {
         return localStorage.getItem(TOKEN_KEY) || "";
       }
 
-      var totalEl = document.getElementById("totalUsers");
-      var tbody = document.getElementById("tbody");
-      var errEl = document.getElementById("err");
-
-      function setErr(t) {
-        errEl.textContent = t || "";
+      function authHeadersJson() {
+        var h = { "Content-Type": "application/json" };
+        var t = getToken();
+        if (t) h.Authorization = "Bearer " + t;
+        return h;
       }
 
-      function loadStats() {
-        setErr("");
+      function authHeaders() {
+        var h = {};
+        var t = getToken();
+        if (t) h.Authorization = "Bearer " + t;
+        return h;
+      }
+
+      function gotoLogin() {
+        window.location.href = "/login.html?redirect=" + encodeURIComponent(window.location.pathname || "/admin.html");
+      }
+
+      function initUserDropdown() {
+        var toggle = userDropdown.querySelector(".user-dropdown-toggle");
+        toggle.addEventListener("click", function (e) {
+          e.stopPropagation();
+          userDropdown.classList.toggle("open");
+        });
+        document.addEventListener("click", function (e) {
+          if (userDropdown.classList.contains("open") && !userDropdown.contains(e.target)) {
+            userDropdown.classList.remove("open");
+          }
+        });
+      }
+
+      function initMenu() {
+        menuItems.forEach(function (item) {
+          item.addEventListener("click", function () {
+            var page = item.getAttribute("data-page");
+            var title = item.getAttribute("data-title");
+            contentFrame.src = page;
+            contentTitle.textContent = title;
+            menuItems.forEach(function (it) { it.classList.remove("active"); });
+            item.classList.add("active");
+          });
+        });
+      }
+
+      function refreshSession() {
         var t = getToken();
         if (!t) {
-          setErr("未登录：请先在首页登录管理员账号。");
-          totalEl.textContent = "";
-          tbody.innerHTML = "";
+          gotoLogin();
           return;
         }
-        fetch("/api/admin/stats", {
-          headers: { Authorization: "Bearer " + t }
-        })
+        fetch("/api/auth/me", { headers: authHeaders() })
           .then(function (res) {
-            if (res.status === 401) {
-              throw new Error("登录已失效，请回到首页重新登录");
-            }
-            if (res.status === 403) {
-              throw new Error("需要管理员角色（ADMIN）");
-            }
-            if (!res.ok) {
-              return res.text().then(function (x) {
-                throw new Error("HTTP " + res.status + ": " + x);
-              });
-            }
+            if (!res.ok) throw new Error("unauthorized");
             return res.json();
           })
-          .then(function (data) {
-            totalEl.textContent = "用户总数：" + data.totalUsers;
-            tbody.innerHTML = "";
-            (data.users || []).forEach(function (u) {
-              var tr = document.createElement("tr");
-              tr.innerHTML =
-                "<td>" +
-                u.id +
-                "</td><td>" +
-                escapeHtml(u.username) +
-                "</td><td>" +
-                escapeHtml(u.role) +
-                "</td><td>" +
-                escapeHtml(u.createdAt || "") +
-                "</td><td>" +
-                u.sessionCount +
-                "</td>";
-              tbody.appendChild(tr);
-            });
+          .then(function (me) {
+            if (!me || me.role !== "ADMIN") {
+              window.location.href = "/";
+              return;
+            }
+            authInfo.textContent = me.username;
           })
-          .catch(function (e) {
-            setErr(String(e.message || e));
-            totalEl.textContent = "";
-            tbody.innerHTML = "";
+          .catch(function () {
+            localStorage.removeItem(TOKEN_KEY);
+            gotoLogin();
           });
       }
 
-      function escapeHtml(s) {
-        return String(s)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-      }
+      btnLogout.addEventListener("click", function () {
+        var token = getToken();
+        function finish() {
+          localStorage.removeItem(TOKEN_KEY);
+          gotoLogin();
+        }
+        if (!token) {
+          finish();
+          return;
+        }
+        fetch("/api/auth/logout", { method: "POST", headers: authHeadersJson() }).then(finish, finish);
+      });
 
-      document.getElementById("btnLoad").addEventListener("click", loadStats);
-      loadStats();
+      refreshSession();
+      initUserDropdown();
+      initMenu();
     })();
   </script>
 </body>

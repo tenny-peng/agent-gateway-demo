@@ -1,41 +1,46 @@
 package org.tenny.logistics.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.tenny.auth.entity.UserConversationMessage;
-import org.tenny.auth.mapper.UserConversationMessageMapper;
-import org.tenny.auth.model.SessionType;
-import org.tenny.auth.service.ConversationMessageService;
-import org.tenny.auth.service.ConversationTrackingService;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import org.tenny.client.LlmClient;
-import org.tenny.client.LlmCompletionResult;
-import org.tenny.client.LlmStreamClient;
-import org.tenny.client.LlmToolCall;
+import org.tenny.user.entity.AppUser;
+import org.tenny.conversation.entity.UserConversationMessage;
+import org.tenny.user.mapper.AppUserMapper;
+import org.tenny.conversation.mapper.UserConversationMessageMapper;
+import org.tenny.generic.enums.SessionType;
+import org.tenny.conversation.service.ConversationMessageService;
+import org.tenny.conversation.service.ConversationTrackingService;
+import org.tenny.common.helper.llmclient.LlmClient;
+import org.tenny.common.helper.llmclient.dto.LlmCompletionResult;
+import org.tenny.common.helper.llmclient.LlmStreamClient;
+import org.tenny.common.helper.llmclient.dto.LlmToolCall;
 import org.tenny.common.session.ConversationStore;
-import org.tenny.config.AgentProperties;
-import org.tenny.config.LlmProperties;
-import org.tenny.dto.AgentChatResponse;
+import org.tenny.common.config.AgentProperties;
+import org.tenny.logistics.dto.AgentChatResponse;
+import org.tenny.llmconfig.service.LlmConfigService;
 import org.tenny.logistics.tool.LogisticsWaybillToolDefinitions;
 import org.tenny.logistics.tool.WaybillQueryTool;
-import org.tenny.rag.RagService;
-import org.tenny.util.JsonLogging;
+import org.tenny.common.helper.rag.RagService;
+import org.tenny.skill.service.SkillInjectService;
+import org.tenny.common.utils.TruncateUtil;
+import org.tenny.common.exception.ChatLimitExceededException;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Logistics business agent: {@code query_waybill} tool loop + optional RAG.
  */
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class LogisticsAgentService {
-
-    private static final Logger log = LoggerFactory.getLogger(LogisticsAgentService.class);
 
     private static final String AGENT_SYSTEM_BASE =
             "你是物流助手。用户询问运单、快递、物流状态时，必须调用 query_waybill 工具查询，"
@@ -43,43 +48,39 @@ public class LogisticsAgentService {
 
     private final LlmClient llmClient;
     private final LlmStreamClient llmStreamClient;
-    private final LlmProperties llmProperties;
+    private final LlmConfigService llmConfigService;
     private final AgentProperties agentProperties;
     private final WaybillQueryTool waybillQueryTool;
     private final ConversationStore conversationStore;
     private final RagService ragService;
+    private final SkillInjectService skillInjectService;
     private final ConversationTrackingService conversationTrackingService;
     private final ConversationMessageService conversationMessageService;
     private final UserConversationMessageMapper userConversationMessageMapper;
+    private final AppUserMapper appUserMapper;
 
-    public LogisticsAgentService(LlmClient llmClient,
-                                 LlmStreamClient llmStreamClient,
-                                 LlmProperties llmProperties,
-                                 AgentProperties agentProperties,
-                                 WaybillQueryTool waybillQueryTool,
-                                 ConversationStore conversationStore,
-                                 RagService ragService,
-                                 ConversationTrackingService conversationTrackingService,
-                                 ConversationMessageService conversationMessageService,
-                                 UserConversationMessageMapper userConversationMessageMapper) {
-        this.llmClient = llmClient;
-        this.llmStreamClient = llmStreamClient;
-        this.llmProperties = llmProperties;
-        this.agentProperties = agentProperties;
-        this.waybillQueryTool = waybillQueryTool;
-        this.conversationStore = conversationStore;
-        this.ragService = ragService;
-        this.conversationTrackingService = conversationTrackingService;
-        this.conversationMessageService = conversationMessageService;
-        this.userConversationMessageMapper = userConversationMessageMapper;
+    private void checkChatLimit(long userId) {
+        AppUser user = appUserMapper.selectById(userId);
+        if (user != null && Boolean.TRUE.equals(user.getChatLimitEnabled())) {
+            // Check message count limit (e.g., 10 messages per user)
+            com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<UserConversationMessage> wrapper =
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+            wrapper.eq("user_id", userId);
+            Long messageCount = userConversationMessageMapper.selectCount(wrapper);
+            if (messageCount >= 10) { // Limit to 10 messages
+                throw new ChatLimitExceededException("Chat limit exceeded (10 messages). Please contact administrator to increase limit.");
+            }
+        }
     }
 
     public AgentChatResponse run(String userMessage, String conversationId, long userId) {
+        checkChatLimit(userId);
         long start = System.currentTimeMillis();
 
         AgentSession session = prepareAgentSession(userMessage, conversationId, userId);
         String convId = session.getConvId();
         List<Map<String, Object>> messages = session.getMessages();
+        persistLogisticsUserTurnEarly(userId, convId, userMessage, messages);
 
         List<Map<String, Object>> tools = LogisticsWaybillToolDefinitions.waybillToolsDefinition();
         int steps = 0;
@@ -94,7 +95,7 @@ public class LogisticsAgentService {
                 messages.add(result.getAssistantMessage());
                 for (LlmToolCall call : result.getToolCalls()) {
                     String payload = executeTool(call.getName(), call.getArguments());
-                    log.info("[LogisticsAgent] tool {} -> {}", call.getName(), JsonLogging.truncate(payload, 500));
+                    log.info("[LogisticsAgent] tool {} -> {}", call.getName(), TruncateUtil.truncate(payload, 500));
                     Map<String, Object> toolMsg = new HashMap<String, Object>();
                     toolMsg.put("role", "tool");
                     toolMsg.put("tool_call_id", call.getId());
@@ -107,21 +108,20 @@ public class LogisticsAgentService {
             }
 
             if (result.getContent() != null && !result.getContent().trim().isEmpty()) {
-                log.info("[LogisticsAgent] step {} -> text: {}", steps, JsonLogging.truncate(result.getContent(), 800));
+                log.info("[LogisticsAgent] step {} -> text: {}", steps, TruncateUtil.truncate(result.getContent(), 800));
                 Map<String, Object> assistant = new HashMap<String, Object>();
                 assistant.put("role", "assistant");
                 assistant.put("content", result.getContent());
                 messages.add(assistant);
                 ragService.stripRagFromAgentMessages(messages);
+                skillInjectService.stripSkillsFromAgentMessages(messages);
                 conversationStore.putAgentMessages(convId, messages);
-                conversationMessageService.appendMessage(
-                        userId, convId, SessionType.LOGISTICS, "user", userMessage, null, userMessage);
                 conversationMessageService.appendMessage(
                         userId, convId, SessionType.LOGISTICS, "assistant", result.getContent(), null, userMessage);
 
                 long latency = System.currentTimeMillis() - start;
                 log.info("[LogisticsAgent] done steps={}, latencyMs={}", steps, latency);
-                return new AgentChatResponse(result.getContent(), llmProperties.getModel(), latency, steps, convId);
+                return new AgentChatResponse(result.getContent(), llmConfigService.getActiveConfig().getModel(), latency, steps, convId);
             }
 
             throw new IllegalStateException("LLM returned empty content and no tool_calls; raw=" + result.getAssistantMessage());
@@ -130,7 +130,8 @@ public class LogisticsAgentService {
         throw new IllegalStateException("Agent exceeded max steps (" + max + ") without final answer");
     }
 
-    public void runStream(String userMessage, String conversationId, long userId, SseEmitter emitter) throws IOException {
+    public void runStream(String userMessage, String conversationId, long userId, SseEmitter emitter, AtomicBoolean isCompleted) throws IOException {
+        checkChatLimit(userId);
         long start = System.currentTimeMillis();
         MediaType textUtf8 = MediaType.parseMediaType("text/plain;charset=UTF-8");
         MediaType jsonUtf8 = MediaType.parseMediaType("application/json;charset=UTF-8");
@@ -138,6 +139,7 @@ public class LogisticsAgentService {
         AgentSession session = prepareAgentSession(userMessage, conversationId, userId);
         String convId = session.getConvId();
         List<Map<String, Object>> messages = session.getMessages();
+        persistLogisticsUserTurnEarly(userId, convId, userMessage, messages);
 
         String meta = "{\"conversationId\":\"" + convId + "\"}";
         emitter.send(SseEmitter.event().data(meta, jsonUtf8));
@@ -150,17 +152,21 @@ public class LogisticsAgentService {
             steps++;
             log.info("[LogisticsAgentStream] step {}/{}, conversationId={}", steps, max, convId);
 
-            LlmCompletionResult result = llmStreamClient.streamChatCompletionsWithTools(messages, tools, piece ->
-                    emitter.send(SseEmitter.event().data(piece, textUtf8)));
+            LlmCompletionResult result = llmStreamClient.streamChatCompletionsWithTools(messages, tools, piece -> {
+                if (isCompleted.get()) {
+                    throw new RuntimeException("Stream interrupted");
+                }
+                emitter.send(SseEmitter.event().data(piece, textUtf8));
+            });
 
             if (result.hasToolCalls()) {
                 log.info("[LogisticsAgentStream] step {} -> tool_calls: {}", steps, summarizeToolCalls(result.getToolCalls()));
                 messages.add(result.getAssistantMessage());
                 for (LlmToolCall call : result.getToolCalls()) {
                     log.info("[LogisticsAgentStream] tool_call name={} id={} arguments={}",
-                            call.getName(), call.getId(), JsonLogging.truncate(call.getArguments(), 400));
+                            call.getName(), call.getId(), TruncateUtil.truncate(call.getArguments(), 400));
                     String payload = executeTool(call.getName(), call.getArguments());
-                    log.info("[LogisticsAgentStream] tool_result name={} content={}", call.getName(), JsonLogging.truncate(payload, 2000));
+                    log.info("[LogisticsAgentStream] tool_result name={} content={}", call.getName(), TruncateUtil.truncate(payload, 2000));
                     Map<String, Object> toolMsg = new HashMap<String, Object>();
                     toolMsg.put("role", "tool");
                     toolMsg.put("tool_call_id", call.getId());
@@ -175,15 +181,14 @@ public class LogisticsAgentService {
             if (result.getContent() != null && !result.getContent().trim().isEmpty()) {
                 messages.add(result.getAssistantMessage());
                 ragService.stripRagFromAgentMessages(messages);
+                skillInjectService.stripSkillsFromAgentMessages(messages);
                 conversationStore.putAgentMessages(convId, messages);
-                conversationMessageService.appendMessage(
-                        userId, convId, SessionType.LOGISTICS, "user", userMessage, null, userMessage);
                 conversationMessageService.appendMessage(
                         userId, convId, SessionType.LOGISTICS, "assistant", result.getContent(), null, userMessage);
                 long latency = System.currentTimeMillis() - start;
                 log.info("[LogisticsAgentStream] done conversationId={} model={} steps={} latencyMs={} answerChars={}",
-                        convId, llmProperties.getModel(), steps, latency, result.getContent().length());
-                log.debug("[LogisticsAgentStream] answer: {}", JsonLogging.truncate(result.getContent(), 4000));
+                        convId, llmConfigService.getActiveConfig().getModel(), steps, latency, result.getContent().length());
+                log.debug("[LogisticsAgentStream] answer: {}", TruncateUtil.truncate(result.getContent(), 4000));
                 emitter.complete();
                 return;
             }
@@ -222,7 +227,29 @@ public class LogisticsAgentService {
             messages.add(user);
         }
         ragService.augmentAgentSystem(messages, userMessage);
+        skillInjectService.augmentAgentSystem(messages, userMessage, userId);
         return new AgentSession(convId, messages);
+    }
+
+    /**
+     * Persist user message and a stripped Redis snapshot immediately so failures mid-agent still keep the question.
+     */
+    private void persistLogisticsUserTurnEarly(long userId, String convId, String userMessage,
+                                               List<Map<String, Object>> messages) {
+        conversationMessageService.appendMessage(
+                userId, convId, SessionType.LOGISTICS, "user", userMessage, null, userMessage);
+        List<Map<String, Object>> forRedis = copyAgentMessages(messages);
+        ragService.stripRagFromAgentMessages(forRedis);
+        skillInjectService.stripSkillsFromAgentMessages(forRedis);
+        conversationStore.putAgentMessages(convId, forRedis);
+    }
+
+    private static List<Map<String, Object>> copyAgentMessages(List<Map<String, Object>> messages) {
+        List<Map<String, Object>> out = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> m : messages) {
+            out.add(new HashMap<String, Object>(m));
+        }
+        return out;
     }
 
     private String executeTool(String name, String argumentsJson) {
@@ -241,7 +268,7 @@ public class LogisticsAgentService {
             if (sb.length() > 0) {
                 sb.append("; ");
             }
-            sb.append(c.getName()).append("(").append(JsonLogging.truncate(c.getArguments(), 200)).append(")");
+            sb.append(c.getName()).append("(").append(TruncateUtil.truncate(c.getArguments(), 200)).append(")");
         }
         return sb.toString();
     }

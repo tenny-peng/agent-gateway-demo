@@ -1,5 +1,8 @@
 package org.tenny.auth.model;
 
+import lombok.Getter;
+
+@Getter
 public final class AuthPrincipal {
 
     public static final String REQUEST_ATTR = "authPrincipal";
@@ -12,18 +15,6 @@ public final class AuthPrincipal {
         this.userId = userId;
         this.username = username;
         this.role = role;
-    }
-
-    public long getUserId() {
-        return userId;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getRole() {
-        return role;
     }
 
     public boolean isAdmin() {
